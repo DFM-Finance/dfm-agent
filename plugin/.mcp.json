@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "dfm": {
+      "command": "npx",
+      "args": ["-y", "@dfm-fi/agent@latest"],
+      "env": {
+        "DFM_API_KEY": "${DFM_API_KEY:-}",
+        "DFM_AGENT_WRITE_ENABLED": "${DFM_AGENT_WRITE_ENABLED:-false}",
+        "DFM_MCP_CONFIRM_REQUIRED": "1"
+      }
+    }
+  }
+}

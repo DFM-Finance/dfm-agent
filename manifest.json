@@ -1,0 +1,34 @@
+{
+  "manifest_version": "0.3",
+  "name": "dfm-agent",
+  "display_name": "DFM",
+  "icon": "icon.png",
+  "version": "0.2.1969",
+  "description": "Launch, deposit into, rebalance and redeem onchain funds on Solana mainnet.",
+  "long_description": "DFM lets anyone launch an onchain fund: a basket of Solana tokens with declared weights, held by a vault that no person holds the key to. Anyone can deposit USDC into a fund and receive shares; a share is an equal claim on every token the vault holds. Shares can be redeemed at any time for USDC or for the tokens themselves. People and AI agents use exactly the same functions — from the app, or from an agent through DFM's MCP server.",
+  "author": { "name": "DFM Finance", "url": "https://dfm.finance" },
+  "homepage": "https://app.dfm.finance",
+  "documentation": "https://app.dfm.finance/docs/agent",
+  "repository": { "type": "git", "url": "https://github.com/DFM-Finance/dfm-agent" },
+  "license": "MIT",
+  "keywords": ["mcp", "model-context-protocol", "solana", "defi", "ai-agent", "onchain-fund", "index-fund", "dtf", "jupiter", "agent-skills"],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/cli.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/cli.js"],
+      "env": {
+        "DFM_API_KEY": "${user_config.dfm_api_key}",
+        "DFM_AGENT_WRITE_ENABLED": "${user_config.write_enabled}",
+        "DFM_MCP_CONFIRM_REQUIRED": "1"
+      }
+    }
+  },
+  "tools_generated": true,
+  "user_config": {
+    "dfm_api_key": { "type": "string", "title": "DFM API key", "description": "dfm_ key from app.dfm.finance → Agent → Keys. Read-only by default; optional for public reads.", "sensitive": true, "required": false },
+    "write_enabled": { "type": "boolean", "title": "Enable write tools", "description": "Real money on Solana mainnet. Default off.", "default": false, "required": false }
+  },
+  "compatibility": { "runtimes": { "node": ">=20.0.0" } }
+}

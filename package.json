@@ -1,0 +1,75 @@
+{
+  "name": "@dfm-fi/agent",
+  "version": "0.2.1969",
+  "description": "DFM v2 MCP server — drive the full fund launch → deposit → redeem (+ manage) lifecycle from an AI agent against the live API.",
+  "homepage": "https://app.dfm.finance/docs/agent",
+  "mcpName": "io.github.DFM-Finance/dfm-agent",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DFM-Finance/dfm-agent.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DFM-Finance/dfm-agent/issues"
+  },
+  "type": "module",
+  "bin": {
+    "dfm-agent": "dist/cli.js"
+  },
+  "main": "dist/mcp-server.js",
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/examples",
+    "!dist/**/*.map",
+    "README.md",
+    "skills.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "solana",
+    "dfm",
+    "agent",
+    "dtf",
+    "solana-mcp",
+    "defi",
+    "index-fund",
+    "onchain-fund",
+    "ai-agent",
+    "jupiter",
+    "portfolio"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "prepublishOnly": "npm run build",
+    "start": "node dist/mcp-server.js",
+    "dev": "tsx src/mcp-server.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "example:read": "tsx src/examples/list-and-status.ts",
+    "example:lifecycle": "tsx src/examples/launch-deposit-redeem.ts",
+    "test": "npm run build && node scripts/smoke-signing.mjs && node scripts/smoke-signing-v1.mjs &&node scripts/smoke-cli.mjs && node scripts/smoke-keyless.mjs && node scripts/smoke-zap-options.mjs && tsx src/who-pays.test.ts && tsx src/wallet-identity.test.ts && tsx src/money-path.test.ts && tsx src/control-flow.test.ts && tsx src/create-flow.metadata.test.ts && tsx src/manager-flow.reconfigure.test.ts && tsx src/recovery-flow.deadleg.test.ts && tsx src/zap-v2-flow.pending.test.ts && tsx src/mcp-server.confirm-gate.test.ts && tsx src/app-wallet-owner.test.ts && tsx src/onboarding.test.ts && tsx src/default-avatar.test.ts && tsx src/client-header.test.ts && tsx src/owner-actions.test.ts && tsx src/owner-rebalance.test.ts && tsx src/token-search.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@solana/web3.js": "^1.99.0",
+    "bs58": "^4.0.1",
+    "tweetnacl": "^1.0.3",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@types/node": "^25.0.0",
+    "eslint": "^9.39.2",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.57.2"
+  }
+}

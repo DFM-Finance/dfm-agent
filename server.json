@@ -1,0 +1,23 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.DFM-Finance/dfm-agent",
+  "title": "DFM · The Fund Management OS",
+  "description": "Launch, deposit into, rebalance and redeem onchain funds on Solana mainnet.",
+  "websiteUrl": "https://app.dfm.finance/docs/agent",
+  "icons": [{ "src": "https://raw.githubusercontent.com/DFM-Finance/dfm-agent/main/icon.png", "mimeType": "image/png", "sizes": ["512x512"] }],
+  "repository": { "url": "https://github.com/DFM-Finance/dfm-agent", "source": "github" },
+  "version": "0.2.1969",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@dfm-fi/agent",
+      "version": "0.2.1969",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        { "name": "DFM_API_KEY", "description": "dfm_ API key from app.dfm.finance → Agent → Keys (read-only by default). Optional for public reads.", "isRequired": false, "isSecret": true },
+        { "name": "DFM_AGENT_WRITE_ENABLED", "description": "Set to true to enable the write tools (real money on Solana mainnet). Default false.", "isRequired": false, "isSecret": false, "default": "false" },
+        { "name": "DFM_MCP_CONFIRM_REQUIRED", "description": "1 = every write needs the human to type the tool name.", "isRequired": false, "isSecret": false }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "name": "dfm",
+  "owner": { "name": "DFM Finance", "url": "https://app.dfm.finance" },
+  "plugins": [
+    { "name": "dfm", "source": "./plugin", "description": "DFM onchain funds on Solana: MCP server + the dfm-fund-manager skill. Read-only by default." }
+  ]
+}

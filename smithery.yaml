@@ -1,0 +1,23 @@
+# Repo-root file (legacy GitHub path). The current Smithery stdio path is the MCPB bundle (manifest.json).
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      dfmApiKey:
+        type: string
+        description: dfm_ API key from app.dfm.finance → Agent → Keys (read-only by default)
+      writeEnabled:
+        type: boolean
+        default: false
+        description: Enable the write tools (real money on Solana mainnet)
+  commandFunction: |-
+    (config) => ({
+      command: 'npx',
+      args: ['-y', '@dfm-fi/agent@latest'],
+      env: {
+        ...(config.dfmApiKey ? { DFM_API_KEY: config.dfmApiKey } : {}),
+        DFM_AGENT_WRITE_ENABLED: config.writeEnabled ? 'true' : 'false',
+        DFM_MCP_CONFIRM_REQUIRED: '1'
+      }
+    })
