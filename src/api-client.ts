@@ -263,6 +263,11 @@ export class DfmApiClient {
    * caller resolves per mint and reports the omission rather than substituting
    * a zero.
    */
+  /** `GET /protocol/facts` — live factory numbers (K1); no auth. */
+  async getProtocolFacts(): Promise<unknown> {
+    return this.publicRequest<unknown>('/protocol/facts');
+  }
+
   async getTokenPrice(mint: string): Promise<unknown> {
     requireBase58(mint, 'mint');
     return this.publicRequest<unknown>(`/prices/${mint}`);

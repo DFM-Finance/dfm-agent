@@ -75,6 +75,7 @@ running. Write tools also require `DFM_AGENT_WRITE_ENABLED=true`.
 | `list_dtfs` | read | List funds (same filters, sort and search as the marketplace). |
 | `get_vault` | read | One fund: basket, current vs target weights, fees, TVL. |
 | `discover_tokens` | read | Turn words into mints (Jupiter search; exact symbol first). |
+| `protocol_facts` | read | Live factory numbers: creation fee, locked seed, entry/exit fees + split, Season 0 cap, basket and default-policy rules. |
 | `get_token_price` | read | Live USD price for up to 20 mints. |
 | `get_portfolio` | read | Your positions. |
 | `zap_status` | read | Progress of an open deposit/redeem escrow. |
