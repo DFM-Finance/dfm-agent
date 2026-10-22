@@ -3,7 +3,7 @@
   "name": "dfm-agent",
   "display_name": "DFM",
   "icon": "icon.png",
-  "version": "0.2.1969",
+  "version": "0.2.2038",
   "description": "Launch, deposit into, rebalance and redeem onchain funds on Solana mainnet.",
   "long_description": "DFM lets anyone launch an onchain fund: a basket of Solana tokens with declared weights, held by a vault that no person holds the key to. Anyone can deposit USDC into a fund and receive shares; a share is an equal claim on every token the vault holds. Shares can be redeemed at any time for USDC or for the tokens themselves. People and AI agents use exactly the same functions — from the app, or from an agent through DFM's MCP server.",
   "author": { "name": "DFM Finance", "url": "https://dfm.finance" },
