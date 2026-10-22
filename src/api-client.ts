@@ -449,20 +449,22 @@ export class DfmApiClient {
   /**
    * `POST /agent/operating/assets/withdraw` — move ONE mint back to the owner.
    *
-   * `destination` is deliberately NOT exposed here: the API resolves the
-   * owner's saved withdrawal wallet first, falling back to the authenticated
-   * wallet — an agent that could name a destination would be a drain vector
-   * for anything that can put words in its input.
+   * An ADDRESS is deliberately NOT exposed here — an agent that could name
+   * one would be a drain vector for anything that can put words in its input.
+   * `to` (#124) only picks which of the owner's two wallets: the saved
+   * withdrawal wallet (default; refused when none is saved) or the sign-in
+   * wallet, when the human asked for it.
    */
   async withdrawAppWalletAsset(
     mint: string,
     amount?: number | string,
+    to: 'saved' | 'sign_in_wallet' = 'saved',
   ): Promise<{ signature: string; sentAmount: string; mint: string } | null> {
     return this.authRequest('/agent/operating/assets/withdraw', {
       method: 'POST',
       body: JSON.stringify(
         // A digit string keeps raw amounts past 2^53 exact.
-        amount === undefined ? { mint, all: true } : { mint, amount: String(amount) },
+        amount === undefined ? { mint, all: true, to } : { mint, amount: String(amount), to },
       ),
     });
   }
@@ -499,14 +501,15 @@ export class DfmApiClient {
     });
   }
 
-  async withdrawOperatingFloat(all = true): Promise<{
+  /** `to` as in `withdrawAppWalletAsset` (#124): one of the owner's two wallets, never an address. */
+  async withdrawOperatingFloat(all = true, to: 'saved' | 'sign_in_wallet' = 'saved'): Promise<{
     signature?: string;
     sweptUsdcMicros?: number;
     sweptSolLamports?: number;
   } | null> {
     return this.authRequest('/agent/operating/float/withdraw', {
       method: 'POST',
-      body: JSON.stringify({ all }),
+      body: JSON.stringify({ all, to }),
     });
   }
 

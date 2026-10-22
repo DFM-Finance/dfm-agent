@@ -209,6 +209,8 @@ async function ownerSignLocally(res: unknown, input: OwnerActionInput) {
     key,
     signInWallet: session.walletAddress,
     appWallet: async () => (await api.getOperatingWallet())?.operatingWalletAddress,
+    // #124 — pinned by the operator on THIS machine, never taken from the server.
+    localSavedWallet: process.env.DFM_WITHDRAWAL_WALLET,
     prepare: (i) => onboardApi.prepareOwnerAction(i as unknown as Record<string, unknown>),
     submit: (id, sig) => onboardApi.submitOwnerAction(id, sig),
     resolveAlt: async (k) => (await conn.getAddressLookupTable(k)).value,
@@ -1039,6 +1041,18 @@ const confirmPhraseField = z
   );
 
 /**
+ * `to` field of the withdrawal tools (#124): which of the owner's two wallets,
+ * never an address. Omitted = the saved withdrawal wallet.
+ */
+const withdrawToField = z
+  .enum(['saved', 'sign_in_wallet'])
+  .optional()
+  .describe(
+    'Where it goes: "saved" (default) = the withdrawal wallet saved in the app; ' +
+      '"sign_in_wallet" ONLY when the human asked for their sign-in wallet in their own words.',
+  );
+
+/**
  * Keyless short-circuit for a write tool.
  *
  * Returns a finished MCP result when this process has an API key but NO local
@@ -1571,23 +1585,26 @@ server.registerTool(
     title: 'Sweep the app wallet to the withdrawal wallet',
     description:
       'REAL-MONEY (gated). Return the app wallet\'s USDC + SOL to the owner\'s saved ' +
-      'withdrawal wallet (Settings → App wallet), or to the owner wallet when none is ' +
-      'saved. The destination is resolved SERVER-SIDE — this tool cannot choose it. ' +
-      'Works even when writes are ' +
-      'otherwise refused (a stale rebalancer stamp, an expired grant): your float is ' +
-      'never trapped behind a config problem. Do this BEFORE app_wallet_rearm.',
+      'withdrawal wallet (Settings → App wallet) — the default — or to the sign-in wallet ' +
+      'ONLY when the human asked for it (`to: "sign_in_wallet"`). With none saved and no ' +
+      '`to`, it is refused: ask the human which. You never pass an address; the server ' +
+      'resolves it. To the sign-in wallet DFM signs it even when writes are ' +
+      'otherwise refused (a stale rebalancer stamp, an expired grant); to the saved ' +
+      'wallet a user-owned (Privy) app wallet needs the owner to approve it in the app. ' +
+      'Do this BEFORE app_wallet_rearm.',
     inputSchema: {
+      to: withdrawToField,
       confirmPhrase: confirmPhraseField,
     },
     annotations: { title: 'DFM app wallet withdraw', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
-  async ({ confirmPhrase }) => {
+  async ({ to, confirmPhrase }) => {
     const gate = confirmGate('app_wallet_withdraw', confirmPhrase);
     if (!gate.ok) return gate.result;
     const write = writeGate();
     if (!write.ok) return write.result;
     try {
-      return ownerApprovalOr(await api.withdrawOperatingFloat(true), 'withdrawal', 'Portfolio → App wallet');
+      return ownerApprovalOr(await api.withdrawOperatingFloat(true, to ?? 'saved'), 'withdrawal', 'Portfolio → App wallet');
     } catch (e) {
       return errText(`app_wallet_withdraw failed: ${(e as Error).message}`);
     }
@@ -1621,28 +1638,31 @@ server.registerTool(
     title: 'Withdraw one token to the withdrawal wallet',
     description:
       'REAL-MONEY (gated). Send ONE mint from the app wallet to the owner\'s saved ' +
-      'withdrawal wallet, or the owner wallet when none is saved — fund shares ' +
-      'included, which app_wallet_withdraw cannot move (it sweeps only USDC + SOL). ' +
-      'The destination is resolved SERVER-SIDE: you choose WHAT moves, never where it ' +
-      'goes. `amount` is in ' +
+      'withdrawal wallet (the default) or, ONLY when the human asked for it, their ' +
+      'sign-in wallet (`to: "sign_in_wallet"`) — fund shares included, which ' +
+      'app_wallet_withdraw cannot move (it sweeps only USDC + SOL). With none saved and ' +
+      'no `to`, it is refused: ask the human which. You never pass an address: you ' +
+      'choose WHAT moves and which of the two, the server resolves it. `amount` is in ' +
       'RAW base units (a 9-decimal token does not survive a UI float) — omit it to ' +
       'send the whole balance. Read the mint and balance from list_app_wallet_assets ' +
       'first; a mint the wallet does not hold is an error, not a no-op.',
     inputSchema: {
       mint: z.string(),
       amount: z.union([z.string().regex(/^[1-9]\d*$/), z.number().int().positive()]).optional(),
+      to: withdrawToField,
       confirmPhrase: confirmPhraseField,
     },
     annotations: { title: 'DFM asset withdraw', readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true },
   },
-  async ({ mint, amount, confirmPhrase }) => {
+  async ({ mint, amount, to, confirmPhrase }) => {
     const gate = confirmGate('withdraw_asset', confirmPhrase);
     if (!gate.ok) return gate.result;
     const write = writeGate();
     if (!write.ok) return write.result;
     try {
-      const res = await api.withdrawAppWalletAsset(mint, amount);
-      return (await ownerSignLocally(res, { kind: 'withdraw_asset', mint, ...(amount !== undefined ? { amount: String(amount) } : {}) }))
+      const dest = to ?? 'saved';
+      const res = await api.withdrawAppWalletAsset(mint, amount, dest);
+      return (await ownerSignLocally(res, { kind: 'withdraw_asset', mint, to: dest, ...(amount !== undefined ? { amount: String(amount) } : {}) }))
         ?? ownerApprovalOr(res, 'withdrawal', 'Portfolio → App wallet');
     } catch (e) {
       return errText(`withdraw_asset failed: ${(e as Error).message}`);

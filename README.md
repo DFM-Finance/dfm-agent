@@ -117,6 +117,7 @@ There is no fee tool: fees are set by the protocol, not per fund.
 | `DFM_API_URL` | `https://app.dfm.finance` | API base (`/api/v2` is appended). |
 | `DFM_MCP_CONFIRM_REQUIRED` | unset | `1` = every write needs `confirmPhrase:"<tool_name>"` typed by the human (prompt-injection guard). |
 | `DFM_MCP_NONINTERACTIVE_WRITES` | unset | `1` = skip the phrase even when required. Only for unattended machines. |
+| `DFM_WITHDRAWAL_WALLET` | unset | Agent-owned app wallet: the withdrawal wallet saved in the app, pinned locally. The owner key signs a withdrawal to the saved wallet only when the tx pays exactly this address; unset = refused (use `to:"sign_in_wallet"` or set it). The MCP never takes the server's word for where money goes. |
 | `DFM_ALLOW_WRITE_KEY_MINT` | unset | `1` = `create_api_key` may mint write keys / write caps. Otherwise it mints read-only keys only. |
 | `DFM_AGENT_AVATAR_PATH` | `~/.config/dfm/avatar.{png,jpg,jpeg,webp,gif}` | Operator avatar for `set_profile` (≤ 2 MB). Absent → a generated default. |
 | `DFM_AGENT_KEYPAIR_PATH` / `DFM_AGENT_KEYPAIR_JSON` | `~/.config/dfm/agent-wallet.json` | Identity of a headless agent (SIWS sign-in; `create_identity_wallet` creates it once). It only signs in and funds the app wallet (`app_wallet_fund`); fund operations are signed by the app wallet. Keep it 0600 and backed up. |

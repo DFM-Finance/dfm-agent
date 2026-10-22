@@ -105,13 +105,13 @@ for (const [name, ixs, re] of swapBad) {
 }
 
 // ── withdraw ──
-const wE = { appWallet: APP, signInWallet: SIGNIN, mint: BONK, amount: '42' };
+const wE = { appWallet: APP, destination: SIGNIN, mint: BONK, amount: '42' };
 {
   const t = await decode([ataIx(SIGNIN, BONK), transferChecked(ataOf(APP, BONK), BONK, ataOf(SIGNIN, BONK), 42n), closeIx(ataOf(APP, BONK), APP)]);
   verifyWithdrawIxs(t.payer, t.ixs, wE);
 }
 for (const [name, ixs, re] of [
-  ['to attacker', [transferChecked(ataOf(APP, BONK), BONK, ataOf(EVIL, BONK), 42n)], /sign-in wallet/],
+  ['to attacker', [transferChecked(ataOf(APP, BONK), BONK, ataOf(EVIL, BONK), 42n)], /requested wallet/],
   ['other mint', [transferChecked(ataOf(APP, BONK), USDC, ataOf(SIGNIN, BONK), 42n)], /mint differs/],
   ['other amount', [transferChecked(ataOf(APP, BONK), BONK, ataOf(SIGNIN, BONK), 43n)], /amount differs/],
   ['two transfers', [transferChecked(ataOf(APP, BONK), BONK, ataOf(SIGNIN, BONK), 42n), transferChecked(ataOf(APP, BONK), BONK, ataOf(SIGNIN, BONK), 42n)], /exactly one/],
@@ -168,6 +168,24 @@ assert.equal(submitted.length, 1, 'only the verified swap was signed');
 const passthrough = await runOwnerAction({ ...deps(goodSwap), prepare: async () => ({ status: 'nothing_to_do' }) }, { kind: 'close_empty' });
 assert.equal(passthrough.status, 'nothing_to_do');
 assert.equal(submitted.length, 1);
+
+// #124 — withdraw_asset pays the SAVED wallet by default and the sign-in wallet only on `to: 'sign_in_wallet'`.
+{
+  const SAVED = EVIL; // any third wallet the owner saved; the verifier pins the tx to exactly it
+  const toSaved = b64([transferChecked(ataOf(APP, BONK), BONK, ataOf(SAVED, BONK), 42n)]);
+  const toSignIn = b64([transferChecked(ataOf(APP, BONK), BONK, ataOf(SIGNIN, BONK), 42n)]);
+  // The saved wallet comes from a LOCAL pin (DFM_WITHDRAWAL_WALLET), never from the server.
+  const w = (tx: string, saved: string | null) => ({ ...deps(tx), ...(saved ? { localSavedWallet: saved } : {}) });
+  const before = submitted.length;
+  assert.equal((await runOwnerAction(w(toSaved, SAVED), { kind: 'withdraw_asset', mint: BONK, amount: '42' })).signature, 'HASH');
+  assert.equal((await runOwnerAction(w(toSignIn, SAVED), { kind: 'withdraw_asset', mint: BONK, amount: '42', to: 'sign_in_wallet' })).signature, 'HASH');
+  // A server that pays the sign-in wallet when the saved one was asked for (or the reverse) is never signed.
+  await assert.rejects(runOwnerAction(w(toSignIn, SAVED), { kind: 'withdraw_asset', mint: BONK, amount: '42' }), /requested wallet/);
+  await assert.rejects(runOwnerAction(w(toSaved, SAVED), { kind: 'withdraw_asset', mint: BONK, amount: '42', to: 'sign_in_wallet' }), /requested wallet/);
+  // No local pin → nothing trustworthy to check against → refused, never a silent sign-in fallback.
+  await assert.rejects(runOwnerAction(w(toSaved, null), { kind: 'withdraw_asset', mint: BONK, amount: '42' }), /no locally pinned withdrawal wallet/);
+  assert.equal(submitted.length, before + 2, 'only the two matching withdrawals were signed');
+}
 
 // Signature roundtrip: the submitted signature verifies over the payload the request carried.
 {

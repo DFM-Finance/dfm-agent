@@ -19,7 +19,8 @@ export const SOLANA_MAINNET_CAIP2 = 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp';
 
 export type OwnerActionInput =
   | { kind: 'swap'; inputMint: string; outputMint: string; amountRaw: string; slippageBps?: number }
-  | { kind: 'withdraw_asset'; mint: string; amount?: string }
+  /** `to` (#124): the saved withdrawal wallet by default; the sign-in wallet only when asked. */
+  | { kind: 'withdraw_asset'; mint: string; amount?: string; to?: 'saved' | 'sign_in_wallet' }
   | { kind: 'close_empty'; destination?: 'sign_in_wallet' | 'app_wallet' }
   | { kind: 'rebalance'; vault: string; slippageBps?: number };
 
@@ -107,6 +108,14 @@ export interface OwnerActionDeps {
    * checked destinations (the app wallet's own ATAs, the local sign-in wallet).
    */
   appWallet(): Promise<string | undefined>;
+  /**
+   * The saved withdrawal wallet as THIS machine knows it (#124) — the operator
+   * pins it locally (`DFM_WITHDRAWAL_WALLET`), never read from DFM's server: the
+   * local check exists to catch a lying server, so it cannot take the server's
+   * word for where the money goes. Unset = the owner key never signs a
+   * withdrawal to the saved wallet.
+   */
+  localSavedWallet?: string;
   /** Independent Jupiter quote (swap only). */
   ownQuote?(q: { inputMint: string; outputMint: string; amountRaw: string; slippageBps: number; platformFeeBps?: number }): Promise<bigint>;
   prepare(input: OwnerActionInput): Promise<Record<string, unknown>>;
@@ -132,7 +141,14 @@ export async function runOwnerAction(deps: OwnerActionDeps, input: OwnerActionIn
     const ownOutAmount = await (deps.ownQuote ?? fetchOwnQuote)({ ...q, platformFeeBps });
     verifySwapIxs(payer, ixs, { appWallet: app, ...q, ownOutAmount });
   } else if (input.kind === 'withdraw_asset') {
-    verifyWithdrawIxs(payer, ixs, { appWallet: app, signInWallet: deps.signInWallet, mint: input.mint, ...(input.amount ? { amount: input.amount } : {}) });
+    const destination = input.to === 'sign_in_wallet' ? deps.signInWallet : deps.localSavedWallet?.trim();
+    if (!destination) {
+      throw new Error(
+        'refusing to sign: no locally pinned withdrawal wallet to check the transaction against — set ' +
+          'DFM_WITHDRAWAL_WALLET to the wallet saved in the app, or ask the human for to: "sign_in_wallet"',
+      );
+    }
+    verifyWithdrawIxs(payer, ixs, { appWallet: app, destination, mint: input.mint, ...(input.amount ? { amount: input.amount } : {}) });
   } else if (input.kind === 'close_empty') {
     verifyCloseIxs(payer, ixs, { appWallet: app, destination: input.destination === 'sign_in_wallet' ? deps.signInWallet : app });
   } else {

@@ -289,12 +289,13 @@ function checkJupiter(ix: TransactionInstruction, d: Buffer, e: SwapExpect, feeA
   }
 }
 
-export interface WithdrawExpect { appWallet: string; signInWallet: string; mint: string; amount?: string }
+/** `destination` = the ONE owner wallet the request asked for: the sign-in wallet or the saved withdrawal wallet (#124). */
+export interface WithdrawExpect { appWallet: string; destination: string; mint: string; amount?: string }
 
 export function verifyWithdrawIxs(payer: string, ixs: TransactionInstruction[], e: WithdrawExpect): void {
   if (payer !== e.appWallet) refuse('fee payer is not the app wallet');
   const src = atasOf(e.appWallet, e.mint);
-  const dst = atasOf(e.signInWallet, e.mint);
+  const dst = atasOf(e.destination, e.mint);
   let transfers = 0;
   let closes = 0;
   for (const ix of ixs) {
@@ -302,7 +303,7 @@ export function verifyWithdrawIxs(payer: string, ixs: TransactionInstruction[], 
     const d = Buffer.from(ix.data);
     if (p === COMPUTE) continue;
     if (p === ATA_PROGRAM) {
-      checkAta(ix, e.appWallet, [e.signInWallet]);
+      checkAta(ix, e.appWallet, [e.destination]);
       if (mintKey(ix, 3) !== e.mint) refuse('creates an account for another mint');
       continue;
     }
@@ -310,7 +311,7 @@ export function verifyWithdrawIxs(payer: string, ixs: TransactionInstruction[], 
       transfers += 1;
       if (!src.includes(key(ix, 0) as string)) refuse('the withdrawal source is not the app wallet');
       if (mintKey(ix, 1) !== e.mint) refuse('the withdrawal mint differs from the request');
-      if (!dst.includes(key(ix, 2) as string)) refuse('the withdrawal does not go to the sign-in wallet');
+      if (!dst.includes(key(ix, 2) as string)) refuse('the withdrawal does not go to the requested wallet');
       if (key(ix, 3) !== e.appWallet) refuse('the withdrawal authority is not the app wallet');
       const amount = d.readBigUInt64LE(1).toString();
       if (e.amount !== undefined && amount !== e.amount) refuse('the withdrawal amount differs from the request');
