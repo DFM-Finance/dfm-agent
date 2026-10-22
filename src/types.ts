@@ -239,26 +239,6 @@ export interface ReconfigureResponse {
   note: string;
 }
 
-/** Constitutional policy values accepted by the on-chain policy instructions. */
-export interface VaultPolicyInput {
-  assetMode: 0 | 1 | 2 | 3;
-  maxAssetBps: number;
-  minAssetBps: number;
-  maxRebalanceBps: number;
-  minRebalanceIntervalSecs: number;
-  maxRebalancesPerDay: number;
-  maxRebalancesPerWeek: number;
-  launchBlackoutSecs: number;
-  minAssets: number;
-  maxAssets: number;
-}
-
-/** Live policy snapshot fields needed to choose create, propose, or accept. */
-export interface OnchainPolicySnapshot extends Record<string, unknown> {
-  pendingProposedAt: number;
-  pendingEffectiveAt: number;
-}
-
 /** SIWS nonce response (`POST /auth/nonce`). */
 export interface NonceResponse {
   nonce: string;

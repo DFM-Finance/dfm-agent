@@ -21,7 +21,7 @@ try {
   };
   // Exercise the actual boundary used by MCP, including its retired override.
   for (const tool of ['launch_vault', 'deposit', 'redeem', 'rebalance_to_targets',
-    'init_rebalancer', 'update_vault_assets', 'zap_v2_cancel', 'zap_v2_update_envelope', 'update_vault_policy']) {
+    'init_rebalancer', 'update_vault_assets', 'zap_v2_cancel', 'zap_v2_update_envelope']) {
     status = 'active';
     assert.equal(shouldExecuteViaAppWallet(config, status), true);
     assert.equal(mayLaunchViaAppWallet(config, status), true);
@@ -32,7 +32,7 @@ try {
       assert.equal(executions, before, 'an unavailable app wallet never reaches any signer');
     }
   }
-  assert.equal(calls.length, 9);
+  assert.equal(calls.length, 8);
   await assert.rejects(executeAppWalletWrite(config, {
     ...api, getOperatingWallet: async () => { throw new Error('lookup failed'); },
   }, 'deposit', {}), /lookup failed/);

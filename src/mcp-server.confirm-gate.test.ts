@@ -108,20 +108,6 @@ console.log('case: by default writes run autonomously — no phrase required');
   });
   assertReachesWriteGate(launch, 'launch_vault without phrase');
 
-  const policy = await callTool('update_vault_policy', {
-    vault: VAULT,
-    assetMode: 0,
-    maxAssetBps: 10000,
-    minAssetBps: 0,
-    maxRebalanceBps: 10000,
-    minRebalanceIntervalSecs: 0,
-    maxRebalancesPerDay: 0,
-    maxRebalancesPerWeek: 0,
-    launchBlackoutSecs: 0,
-    minAssets: 2,
-    maxAssets: 10,
-  });
-  assertReachesWriteGate(policy, 'update_vault_policy without phrase');
 
   // A wrong / injected phrase is IGNORED in the default mode (the gate is
   // off; the field only matters when DFM_MCP_CONFIRM_REQUIRED=1).
@@ -205,21 +191,6 @@ console.log('case: DFM_MCP_CONFIRM_REQUIRED=1 enforces the human phrase gate');
   assert(withdraw.isError === true && resultText(withdraw).includes('confirmPhrase="app_wallet_withdraw"'),
     'app_wallet_withdraw without phrase → refused');
 
-  const policy = await callTool('update_vault_policy', {
-    vault: VAULT,
-    assetMode: 0,
-    maxAssetBps: 10000,
-    minAssetBps: 0,
-    maxRebalanceBps: 10000,
-    minRebalanceIntervalSecs: 0,
-    maxRebalancesPerDay: 0,
-    maxRebalancesPerWeek: 0,
-    launchBlackoutSecs: 0,
-    minAssets: 2,
-    maxAssets: 10,
-  });
-  assert(policy.isError === true && resultText(policy).includes('confirmPhrase="update_vault_policy"'),
-    'update_vault_policy without phrase → refused (gate equivalent to the old z.literal)');
 
   // The injection shape: a plausible-but-wrong phrase refuses.
   const injected = await callTool('deposit', {

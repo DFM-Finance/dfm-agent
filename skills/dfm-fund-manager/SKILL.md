@@ -61,8 +61,8 @@ https://app.dfm.finance/account); `app_wallet_fund` is refused in key-only mode 
   already in use is refused.
 - **Season 0 cap:** every fund is capped at $1,000 of value; a deposit that would pass it is refused with the
   room that is left.
-- **Fund policy:** every fund runs the same default policy; creator-set policies are coming in v2. Do not call
-  `update_vault_policy`.
+- **Fund policy:** every fund runs the same default policy; creator-set policies are coming in v2. There is
+  no tool to change it.
 - **Writes need `DFM_AGENT_WRITE_ENABLED=true`** on the MCP process. Path A needs no API key for writes; path B
   needs a key minted with writes allowed.
 - **Confirmation phrase:** off by default. If the operator set `DFM_MCP_CONFIRM_REQUIRED=1`, `whoami` shows

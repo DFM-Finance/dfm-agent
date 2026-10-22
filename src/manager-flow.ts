@@ -1,13 +1,13 @@
 /**
- * Vault manager lifecycle drivers for basket changes, rebalancing, admin
- * handoffs, and constitutional policy updates.
+ * Vault manager lifecycle drivers for basket changes, rebalancing and admin
+ * handoffs. (Policy edits are closed until Policy v2, #118.)
  *
  * ⚠️ GATED behind DFM_AGENT_WRITE_ENABLED. SECURITY MODEL:
  *   - Admin actions require the acting signer to administer the vault. Acceptance
  *     instead requires that signer to equal the pending new admin.
- *   - Basket and policy limits are checked by this package, the API, and chain.
- *   - Admin handoffs, basket redirections, and policy changes are exposed as
- *     explicit-human-only MCP tools.
+ *   - Basket limits are checked by this package, the API, and chain.
+ *   - Admin handoffs and basket redirections are exposed as explicit-human-only
+ *     MCP tools.
  * REVIEW: real-money / control path — parent must review before enabling.
  */
 import type { AgentConfig } from './config.js';
@@ -16,12 +16,10 @@ import type {
   CreateAssetInput,
   ConvergeLegTx,
   ReconfigureTargetInput,
-  VaultPolicyInput,
   ZapV2SingleTxResponse,
 } from './types.js';
 import { signBase64Transaction } from './signing.js';
 import { submitSignedTx, BlockhashExpiredError } from './submit.js';
-import type { KeylessExecResult } from './keyless.js';
 
 /** On-chain rebalance cooldown (5s) — keep a small margin so back-to-back legs
  *  never trip `HARD_MIN_REBALANCE_INTERVAL_SECS`. */
@@ -54,22 +52,6 @@ export interface AcceptAdminTransferResult {
   signature: string;
   vaultAdmin: string;
   message: string;
-}
-
-export interface UpdateVaultPolicyResult {
-  ok: true;
-  reconciled: true;
-  vault: string;
-  mode: 'create' | 'amend' | 'accept' | 'reconcile';
-  signatures: string[];
-  message: string;
-}
-
-export interface KeylessUpdateVaultPolicyResult {
-  signature: string;
-  status: string;
-  note?: string;
-  reconciled: boolean;
 }
 
 export interface InitRebalancerResult {
@@ -267,177 +249,6 @@ export async function runAcceptAdminTransfer(
       `Admin transfer accepted onchain and reconciled. Vault ${vault.slice(0, 8)}… ` +
       `is now administered by ${confirmed.vaultAdmin.slice(0, 8)}….`,
   };
-}
-
-function requirePolicyInteger(
-  value: number,
-  field: keyof VaultPolicyInput,
-  min: number,
-  max: number,
-): void {
-  if (!Number.isSafeInteger(value) || value < min || value > max) {
-    throw new Error(`${field} must be an integer between ${min} and ${max}.`);
-  }
-}
-
-/** Mirror the product and on-chain bounds before preparing a policy write. */
-export function validateVaultPolicy(policy: VaultPolicyInput): void {
-  requirePolicyInteger(policy.assetMode, 'assetMode', 0, 3);
-  requirePolicyInteger(policy.maxAssetBps, 'maxAssetBps', 0, 10_000);
-  requirePolicyInteger(policy.minAssetBps, 'minAssetBps', 0, 10_000);
-  requirePolicyInteger(policy.maxRebalanceBps, 'maxRebalanceBps', 0, 10_000);
-  requirePolicyInteger(
-    policy.minRebalanceIntervalSecs,
-    'minRebalanceIntervalSecs',
-    0,
-    Number.MAX_SAFE_INTEGER,
-  );
-  requirePolicyInteger(policy.maxRebalancesPerDay, 'maxRebalancesPerDay', 0, 10);
-  requirePolicyInteger(policy.maxRebalancesPerWeek, 'maxRebalancesPerWeek', 0, 30);
-  requirePolicyInteger(policy.launchBlackoutSecs, 'launchBlackoutSecs', 0, 2_592_000);
-  requirePolicyInteger(policy.minAssets, 'minAssets', 0, MAX_ASSETS);
-  requirePolicyInteger(policy.maxAssets, 'maxAssets', 0, MAX_ASSETS);
-
-  if (
-    policy.minAssetBps > 0 &&
-    policy.maxAssetBps > 0 &&
-    policy.minAssetBps > policy.maxAssetBps
-  ) {
-    throw new Error('minAssetBps cannot exceed maxAssetBps.');
-  }
-  if (policy.minAssets > 0 && policy.maxAssets > 0 && policy.minAssets > policy.maxAssets) {
-    throw new Error('minAssets cannot exceed maxAssets.');
-  }
-}
-
-/**
- * Create, amend, or finish a pending policy write, then reconcile its Mongo
- * shadow from chain. A landed signature retries reconciliation without a write.
- */
-export async function runUpdateVaultPolicy(
-  config: AgentConfig,
-  api: DfmApiClient,
-  vault: string,
-  policy: VaultPolicyInput,
-  landedSignature?: string,
-  dependencies?: ControlFlowDependencies,
-): Promise<UpdateVaultPolicyResult> {
-  validateVaultPolicy(policy);
-
-  if (landedSignature) {
-    requireLandedSignature(landedSignature);
-    try {
-      await api.confirmVaultPolicy(vault, landedSignature);
-    } catch (thrownObject) {
-      const reason = thrownObject instanceof Error ? thrownObject.message : String(thrownObject);
-      throw new Error(
-        `Policy transaction ${landedSignature} is onchain, but reconciliation still failed: ${reason}. ` +
-          'Do not submit another policy transaction.',
-      );
-    }
-    return {
-      ok: true,
-      reconciled: true,
-      vault,
-      mode: 'reconcile',
-      signatures: [landedSignature],
-      message: `Policy for vault ${vault.slice(0, 8)}… reconciled from onchain state.`,
-    };
-  }
-
-  const snapshot = await api.getOnchainPolicy(vault);
-  let mode: UpdateVaultPolicyResult['mode'];
-  let preparedTransactions: ZapV2SingleTxResponse[];
-
-  if (!snapshot) {
-    mode = 'create';
-    preparedTransactions = [await api.prepareCreateVaultPolicy(vault, policy)];
-  } else {
-    if (
-      !Number.isSafeInteger(snapshot.pendingProposedAt) ||
-      !Number.isSafeInteger(snapshot.pendingEffectiveAt)
-    ) {
-      throw new Error('The API returned an invalid onchain pending-policy snapshot.');
-    }
-    const pending = snapshot.pendingProposedAt > 0;
-    const effectiveAt = pending
-      ? snapshot.pendingEffectiveAt
-      : Math.floor(Date.now() / 1_000);
-    const amendment = { ...policy, effectiveAt };
-    mode = pending ? 'accept' : 'amend';
-    preparedTransactions = pending
-      ? [await api.prepareAcceptVaultPolicy(vault, amendment)]
-      : [
-          await api.prepareProposeVaultPolicy(vault, amendment),
-          await api.prepareAcceptVaultPolicy(vault, amendment),
-        ];
-  }
-
-  const signatures: string[] = [];
-  for (const [index, prepared] of preparedTransactions.entries()) {
-    try {
-      signatures.push(
-        await signAndSubmitControlTransaction(config, api, prepared, dependencies),
-      );
-    } catch (thrownObject) {
-      if (signatures.length === 0) throw thrownObject;
-      const reason = thrownObject instanceof Error ? thrownObject.message : String(thrownObject);
-      throw new Error(
-        `Policy proposal ${signatures[0]} landed, but transaction ${index + 1} did not: ${reason}. ` +
-          'Retry update_vault_policy with the exact same policy values so it accepts the pending proposal.',
-      );
-    }
-  }
-
-  const finalSignature = signatures[signatures.length - 1];
-  try {
-    await api.confirmVaultPolicy(vault, finalSignature);
-  } catch (thrownObject) {
-    const reason = thrownObject instanceof Error ? thrownObject.message : String(thrownObject);
-    throw new Error(
-      `Policy transaction ${finalSignature} landed, but post-chain reconciliation failed: ${reason}. ` +
-        `Do not submit another policy transaction. Retry update_vault_policy with landedSignature=${finalSignature}.`,
-    );
-  }
-
-  return {
-    ok: true,
-    reconciled: true,
-    vault,
-    mode,
-    signatures,
-    message:
-      `Policy ${mode === 'create' ? 'created' : 'updated'} onchain and reconciled for ` +
-      `vault ${vault.slice(0, 8)}….`,
-  };
-}
-
-/** Verify and reconcile the result returned by the generic keyless executor. */
-export async function reconcileKeylessUpdateVaultPolicy(
-  api: DfmApiClient,
-  vault: string,
-  policy: VaultPolicyInput,
-  result: KeylessExecResult,
-): Promise<KeylessUpdateVaultPolicyResult> {
-  validateVaultPolicy(policy);
-  const signature = result.signature;
-  if (!signature) {
-    throw new Error('update_vault_policy reported no landed transaction signature');
-  }
-  if (result.status !== 'complete') {
-    return { ...result, signature, reconciled: false };
-  }
-  try {
-    await api.confirmVaultPolicy(vault, signature);
-  } catch (thrownObject) {
-    const reason = thrownObject instanceof Error ? thrownObject.message : String(thrownObject);
-    throw new Error(
-      `Policy transaction ${signature} landed through the operating wallet, but ` +
-        `post-chain reconciliation failed: ${reason}. Do not execute the policy again. ` +
-        `Retry update_vault_policy with landedSignature=${signature}.`,
-    );
-  }
-  return { ...result, signature, reconciled: true };
 }
 
 /**

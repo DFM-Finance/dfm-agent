@@ -35,8 +35,6 @@ import type {
   RebalanceToTargetsResponse,
   ReconfigureResponse,
   ReconfigureTargetInput,
-  OnchainPolicySnapshot,
-  VaultPolicyInput,
 } from './types.js';
 
 const BASE58_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -897,64 +895,6 @@ export class DfmApiClient {
         method: 'POST',
         body: JSON.stringify({ signature }),
         idempotencyKey: `adminacceptconfirm-${signature.slice(0, 60)}`,
-      },
-    );
-  }
-
-  /** Read the live on-chain policy; null means a legacy vault has no policy PDA. */
-  async getOnchainPolicy(vaultAddress: string): Promise<OnchainPolicySnapshot | null> {
-    requireBase58(vaultAddress, 'vault address');
-    return this.authRequest<OnchainPolicySnapshot | null>(
-      `/policy/${vaultAddress}/onchain`,
-      { method: 'GET' },
-    );
-  }
-
-  async prepareCreateVaultPolicy(
-    vaultAddress: string,
-    policy: VaultPolicyInput,
-  ): Promise<ZapV2SingleTxResponse> {
-    requireBase58(vaultAddress, 'vault address');
-    return this.authRequest<ZapV2SingleTxResponse>(
-      `/policy/${vaultAddress}/onchain/create/prepare`,
-      { method: 'POST', body: JSON.stringify(policy) },
-    );
-  }
-
-  async prepareProposeVaultPolicy(
-    vaultAddress: string,
-    policy: VaultPolicyInput & { effectiveAt: number },
-  ): Promise<ZapV2SingleTxResponse> {
-    requireBase58(vaultAddress, 'vault address');
-    return this.authRequest<ZapV2SingleTxResponse>(
-      `/policy/${vaultAddress}/onchain/amendment/propose/prepare`,
-      { method: 'POST', body: JSON.stringify(policy) },
-    );
-  }
-
-  async prepareAcceptVaultPolicy(
-    vaultAddress: string,
-    policy: VaultPolicyInput & { effectiveAt: number },
-  ): Promise<ZapV2SingleTxResponse> {
-    requireBase58(vaultAddress, 'vault address');
-    return this.authRequest<ZapV2SingleTxResponse>(
-      `/policy/${vaultAddress}/onchain/amendment/accept/prepare`,
-      { method: 'POST', body: JSON.stringify(policy) },
-    );
-  }
-
-  /** Re-read chain state and reconcile the Mongo policy shadow. Safe to retry. */
-  async confirmVaultPolicy(
-    vaultAddress: string,
-    signature: string,
-  ): Promise<Record<string, unknown> & { onChain: true }> {
-    requireBase58(vaultAddress, 'vault address');
-    return this.authRequest<Record<string, unknown> & { onChain: true }>(
-      `/policy/${vaultAddress}/onchain/confirm`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ signature }),
-        idempotencyKey: `policyconfirm-${signature.slice(0, 60)}`,
       },
     );
   }

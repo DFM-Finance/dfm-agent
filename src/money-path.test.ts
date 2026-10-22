@@ -197,16 +197,6 @@ console.log('case: X-Idempotency-Key is STABLE across a retry of the same write'
     'admin acceptance confirmation has its OWN endpoint prefix',
   );
 
-  const adminAcceptKey = sent[0]!.key;
-  sent.length = 0;
-  await api.confirmVaultPolicy(VAULT, SIG);
-  await api.confirmVaultPolicy(VAULT, SIG);
-  assert(sent[0]!.key === sent[1]!.key, 'policy confirm retry reuses the SAME key');
-  assert(
-    sent[0]!.key !== adminAcceptKey && sent[0]!.key !== createKey,
-    'policy confirmation has its OWN endpoint prefix',
-  );
-
   // A /prepare is NOT a retryable-identity call: it must ask for a genuinely new
   // transaction (fresh blockhash), so its key must differ every time.
   sent.length = 0;

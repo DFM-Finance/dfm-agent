@@ -99,7 +99,6 @@ running. Write tools also require `DFM_AGENT_WRITE_ENABLED=true`.
 | `init_rebalancer` | write | Manager: enable rebalancing (normally done by `launch_vault`). Rebalancing is manual: there are no auto-rebalance tools. |
 | `attach_metadata` | write | Retry a fund's share-token metadata (name, symbol, logo) when the launch skipped it or it failed. |
 | `zap_v2_cancel` / `zap_v2_update_envelope` | write | Recover or unstick a stalled escrow. |
-| `update_vault_policy` | write | Manager: constitutional limits (explicit human instruction only). |
 | `transfer_admin` / `accept_admin_transfer` | write | **Not available yet in this MCP**: `transfer_admin` always refuses; `accept_admin_transfer` only reconciles an acceptance that already landed. |
 | `app_wallet_fund` / `app_wallet_withdraw` / `withdraw_asset` / `app_wallet_rearm` | write | Fund (from the local identity wallet; not in key-only mode), sweep or re-arm the app wallet; withdraw one token. |
 | `close_empty_accounts` | write | Agent-owned app wallet: close empty token accounts and reclaim the rent. |
