@@ -267,7 +267,7 @@ server.registerTool(
       'List funds from the live DFM v2 API (GET /vaults) — the same filter, ' +
       'sort and search surface the marketplace page uses. Returns address, ' +
       'name/symbol, status, TVL, share price, fees, and basket allocations. ' +
-      'Filters: category (7 Fun, 8 RWA, 3 AI, 9 Stocks, 4 Gaming, 1 DeFi, 255 custom), search (name), creator ' +
+      'Filters: category (7 Fun, 8 RWA, 3 AI, 9 Stocks, 4 Gaming, 1 DeFi, 10 Infra, 255 custom), search (name), creator ' +
       '(wallet), sortBy + sortDir, page, limit (max 50).',
     inputSchema: {
       category: z.number().int().optional(),
