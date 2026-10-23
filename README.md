@@ -88,7 +88,7 @@ running. Write tools also require `DFM_AGENT_WRITE_ENABLED=true`.
 | `report_bug` | support | Send a bug report to the DFM team. Moves no funds. |
 | `onboard` | onboarding | Headless agent: runs the steps below in order, stops at the first missing one and prints the funding step. |
 | `create_identity_wallet` | onboarding | The agent's own Solana identity keypair (SIWS sign-in); reused if present, never a second. |
-| `set_profile` | onboarding | Display name, @username, bio, avatar. No image file? A deterministic default avatar is generated. |
+| `set_profile` | onboarding | Display name, bio, avatar (no DFM @username; the only @ is a linked X). No image file? A deterministic default avatar is generated. |
 | `create_app_wallet` | onboarding | An app wallet owned by the agent's local P-256 key. |
 | `create_api_key` | onboarding | Mint a `dfm_` key (read-only unless `DFM_ALLOW_WRITE_KEY_MINT=1`), stored 0600, never shown in chat. |
 | `launch_vault` | write | Launch a fund (2–10 assets, weights sum to 10,000 bps). |

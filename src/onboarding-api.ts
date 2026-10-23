@@ -105,7 +105,7 @@ export function makeSessionFetch(
 export function onboardingApi(call: SessionFetch) {
   return {
     getProfile: () => call('/profile', { method: 'GET' }) as Promise<{ wallet?: string; displayName?: string; effectiveAvatarUri?: string | null }>,
-    updateProfile: (dto: { displayName: string; username?: string; bio?: string }) => call('/profile', { method: 'PUT', json: dto }),
+    updateProfile: (dto: { displayName: string; bio?: string }) => call('/profile', { method: 'PUT', json: dto }),
     uploadAvatar: (bytes: Buffer, filename: string, mime: string) => {
       const form = new FormData();
       form.append('file', new Blob([new Uint8Array(bytes)], { type: mime }), filename);

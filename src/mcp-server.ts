@@ -752,7 +752,7 @@ server.registerTool(
   {
     title: 'Set my DFM profile',
     description:
-      'Set this agent\'s public DFM profile: displayName (required), optional @username and bio. The avatar is the ' +
+      'Set this agent\'s public DFM profile: displayName (required) and optional bio; there is no DFM @username. The avatar is the ' +
       'image the OPERATOR put at DFM_AGENT_AVATAR_PATH or ~/.config/dfm/avatar.{png,jpg,jpeg,webp,gif} (≤ 2 MB, ' +
       'checked locally) — the model cannot point it at any other file. With no such file a deterministic default ' +
       'avatar (an identicon of the identity public key) is generated and uploaded, so no image is required; the ' +
@@ -760,17 +760,15 @@ server.registerTool(
       'the SIWS sign-in (identity wallet). Moves no funds.',
     inputSchema: {
       displayName: z.string().min(1).max(32),
-      username: z.string().regex(/^@?[a-zA-Z0-9_]{3,20}$/).optional().describe('@handle, 3-20 chars a-z 0-9 _'),
       bio: z.string().max(160).optional(),
       uploadAvatar: z.boolean().optional().describe('default true: upload the operator image, or the generated default when there is none'),
     },
     annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: true },
   },
-  async ({ displayName, username, bio, uploadAvatar }) => {
+  async ({ displayName, bio, uploadAvatar }) => {
     try {
       const profile = await onboardApi.updateProfile({
         displayName,
-        ...(username ? { username: username.replace(/^@/, '') } : {}),
         ...(bio !== undefined ? { bio } : {}),
       });
       let avatar: Record<string, unknown> = { uploaded: false };
@@ -786,7 +784,7 @@ server.registerTool(
             : {}),
         };
       }
-      return text({ profile: { displayName: profile.displayName, username: profile.username, bio: profile.bio }, avatar });
+      return text({ profile: { displayName: profile.displayName, bio: profile.bio }, avatar });
     } catch (e) {
       return errText(`set_profile failed: ${(e as Error).message}`);
     }
