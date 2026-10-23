@@ -284,11 +284,14 @@ export class DfmApiClient {
    * null. The session wallet must equal `user` (or be the vault admin), else 403.
    * Returns `null` when the user has no open escrow.
    */
-  async getZapV2Status(vaultAddress: string, user: string): Promise<ZapV2Status | null> {
+  async getZapV2Status(vaultAddress: string, user: string, escrowSlot?: number): Promise<ZapV2Status | null> {
     requireBase58(vaultAddress, 'vault address');
     requireBase58(user, 'user wallet');
+    // A wallet can hold up to 8 escrows per fund; without a slot the API
+    // returns the oldest open one.
+    const q = escrowSlot === undefined ? '' : `?slot=${escrowSlot}`;
     return this.authRequest<ZapV2Status | null>(
-      `/vaults/${vaultAddress}/zap-v2/status/${user}`,
+      `/vaults/${vaultAddress}/zap-v2/status/${user}${q}`,
     );
   }
 
@@ -672,11 +675,11 @@ export class DfmApiClient {
   }
 
   /** `POST /vaults/:address/zap-in-v2/close/prepare` — CPI mint_in_kind_v2. */
-  async prepareZapInCloseV2(vaultAddress: string): Promise<ZapV2PrepareResponse> {
+  async prepareZapInCloseV2(vaultAddress: string, escrowSlot?: number): Promise<ZapV2PrepareResponse> {
     requireBase58(vaultAddress, 'vault address');
     return this.authRequest<ZapV2PrepareResponse>(
       `/vaults/${vaultAddress}/zap-in-v2/close/prepare`,
-      { method: 'POST', body: JSON.stringify({}) },
+      { method: 'POST', body: JSON.stringify(escrowSlot === undefined ? {} : { escrowSlot }) },
     );
   }
 
@@ -716,11 +719,11 @@ export class DfmApiClient {
   }
 
   /** `POST /vaults/:address/zap-out-v2/close/prepare` — exit fee, pay net USDC. */
-  async prepareZapOutCloseV2(vaultAddress: string): Promise<ZapV2PrepareResponse> {
+  async prepareZapOutCloseV2(vaultAddress: string, escrowSlot?: number): Promise<ZapV2PrepareResponse> {
     requireBase58(vaultAddress, 'vault address');
     return this.authRequest<ZapV2PrepareResponse>(
       `/vaults/${vaultAddress}/zap-out-v2/close/prepare`,
-      { method: 'POST', body: JSON.stringify({}) },
+      { method: 'POST', body: JSON.stringify(escrowSlot === undefined ? {} : { escrowSlot }) },
     );
   }
 
@@ -729,11 +732,11 @@ export class DfmApiClient {
    * USDC + per-asset balances to the test wallet as-is (no swaps, no oracle),
    * then close it. 404 server-side when no escrow is open. Single v0 tx.
    */
-  async prepareZapCancelV2(vaultAddress: string): Promise<ZapV2SingleTxResponse> {
+  async prepareZapCancelV2(vaultAddress: string, escrowSlot?: number): Promise<ZapV2SingleTxResponse> {
     requireBase58(vaultAddress, 'vault address');
     return this.authRequest<ZapV2SingleTxResponse>(
       `/vaults/${vaultAddress}/zap-v2/cancel/prepare`,
-      { method: 'POST', body: JSON.stringify({}) },
+      { method: 'POST', body: JSON.stringify(escrowSlot === undefined ? {} : { escrowSlot }) },
     );
   }
 

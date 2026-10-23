@@ -51,7 +51,7 @@ export interface ZapFlowResult {
    * #61 — 'complete' = escrow closed/settled (shares minted / USDC paid).
    * 'pending' = the poll window elapsed but the escrow is STILL OPEN and
    * self-healing (the backend orchestrator keeps cranking) — this is NOT a
-   * failure; call the same tool again (same args) to RESUME polling to close.
+   * failure; call again with the escrow's `escrowSlot` to RESUME polling to close.
    */
   settlement: 'complete' | 'pending';
   openSignatures: string[];
@@ -122,8 +122,8 @@ async function submitOpen(
     if (e instanceof BlockhashExpiredError) {
       throw new Error(
         `The ${kind} OPEN tx did not confirm before its blockhash expired. Check zap_status: ` +
-          `if an escrow now EXISTS, the open landed — poll it then close (re-run this ${kind} call ` +
-          `once an escrow is open will resume it); if NO escrow exists, nothing happened and it is ` +
+          `if an escrow now EXISTS in slot ${prepared.escrowSlot ?? 0}, the open landed — re-run this ${kind} ` +
+          `with escrowSlot=${prepared.escrowSlot ?? 0} to resume it; if NO escrow exists, nothing happened and it is ` +
           `safe to re-run the ${kind}. Original: ${e.message}`,
       );
     }
@@ -131,14 +131,15 @@ async function submitOpen(
     // open pulls funds + Anchor-`init`s the escrow, so it MAY still land — a blind
     // re-run could double-pull before the escrow becomes visible. Do NOT re-run
     // immediately: verify the broadcast signature on-chain first, THEN use
-    // zap_status (the deposit/redeem resume-guard keys off an existing escrow, so a
+    // zap_status (resume = re-run with the escrowSlot of this open, so a
     // re-run is only safe once that escrow is visible OR the open is confirmed dead).
     if (e instanceof BroadcastUnconfirmedError) {
       throw new Error(
         `The ${kind} OPEN tx ${e.signature} was broadcast but did NOT confirm in time — it may ` +
           `still land. Do NOT blindly re-run (the open pulls funds + creates the escrow; a duplicate ` +
           `could double-pull). First verify ${e.signature} onchain: if it LANDED, an escrow now ` +
-          `exists — re-run this ${kind} to resume (poll → close); if it truly DROPPED (sig not found), ` +
+          `exists — re-run this ${kind} with escrowSlot=${prepared.escrowSlot ?? 0} to resume (poll → close); ` +
+          `a re-run WITHOUT it opens a second ${kind}. If it truly DROPPED (sig not found), ` +
           `it is safe to re-run the ${kind}. Original: ${e.message}`,
       );
     }
@@ -223,12 +224,13 @@ async function pollUntilReady(
   vault: string,
   user: string,
   poll: PollOptions,
+  escrowSlot?: number,
 ): Promise<PollResult> {
   const deadline = Date.now() + poll.timeoutSecs * 1000;
   let last: ZapV2Status | null = null;
   let sawOpen = false; // have we observed the escrow OPEN at least once this poll?
   while (Date.now() < deadline) {
-    last = await api.getZapV2Status(vault, user);
+    last = await api.getZapV2Status(vault, user, escrowSlot);
     if (!last) {
       // A null read is ambiguous: (a) the escrow SETTLED + closed (the backend
       // keeper finished it — the #61 success case), OR (b) a freshly-opened escrow
@@ -256,10 +258,14 @@ function pendingResult(
   escrowPda: string,
   openSignatures: string[],
   pr: Extract<PollResult, { ready: false }>,
+  escrowSlot?: number,
 ): ZapFlowResult {
   const legsFilled = pr.status?.legsFilled ?? 0;
   const legsTotal = pr.status?.legsTotal ?? 0;
   const verb = kind === 'redeem' ? 'redeem' : 'deposit';
+  // Without the slot a repeat call OPENS A NEW escrow (several per fund are
+  // allowed) — resuming this one needs it.
+  const again = `call ${verb} again with escrowSlot=${escrowSlot ?? 0}`;
   const why =
     pr.reason === 'gone'
       ? `The escrow is no longer open — most likely it SETTLED (the backend keeper closed it ` +
@@ -268,10 +274,10 @@ function pendingResult(
       : pr.reason === 'expired'
         ? `The escrow passed its expiry with ${legsFilled}/${legsTotal} legs filled. The backend ` +
           `stall-recovery may STILL settle it automatically (it loosens floors + extends expiry) — ` +
-          `call ${verb} again (same args) to resume polling. If it stays stuck, use ` +
+          `${again} to resume polling. If it stays stuck, use ` +
           `zap_v2_update_envelope (loosen floors) or zap_v2_cancel (recover holdings).`
         : `Still cranking: ${legsFilled}/${legsTotal} legs filled. The escrow is OPEN and ` +
-          `self-healing — this is NOT a failure. Call ${verb} again (same args) to RESUME polling ` +
+          `self-healing — this is NOT a failure. To RESUME polling, ${again} ` +
           `to completion (consider a larger pollTimeoutSecs), or inspect with zap_status.`;
   return {
     ok: true,
@@ -298,41 +304,41 @@ export async function runDeposit(
   user: string,
   vault: string,
   usdcAmountRaw: string,
-  opts?: { slippageBps?: number; expirySecs?: number; poll?: Partial<PollOptions> },
+  opts?: { slippageBps?: number; expirySecs?: number; poll?: Partial<PollOptions>; escrowSlot?: number },
 ): Promise<ZapFlowResult> {
   const poll = { ...DEFAULT_POLL, ...(opts?.poll ?? {}) };
 
-  // 0. RESUME GUARD — if an escrow is ALREADY open for this (vault, user), don't
-  //    re-open (the escrow PDA is Anchor-`init` → a second open reverts, and we'd
-  //    risk double-pulling USDC). Resume it: poll → close. This makes the deposit
-  //    call idempotent against a prior open whose close never landed.
-  const existing = await api.getZapV2Status(vault, user);
+  // 0. RESUME only when asked: a wallet may hold several escrows per fund, so a
+  //    plain call always OPENS a new one. `opts.escrowSlot` resumes that escrow
+  //    (poll → close) — the idempotent retry after a pending/unconfirmed open.
+  const existing =
+    opts?.escrowSlot === undefined ? null : await api.getZapV2Status(vault, user, opts.escrowSlot);
+  if (opts?.escrowSlot !== undefined && !existing) {
+    throw new Error(`No open escrow in slot ${opts.escrowSlot} for this vault+wallet — nothing to resume.`);
+  }
   let openSignatures: string[] = [];
   let escrowPda: string;
+  let escrowSlot: number | undefined = opts?.escrowSlot;
   // Set when resuming an open escrow whose pinned input amount differs from the
   // amount this call requested (the requested amount is NOT honored on resume).
   let resumedPinnedAmount: string | null = null;
   if (existing) {
     if (existing.mode !== 0) {
-      throw new Error(
-        `An open REDEEM escrow already exists for this vault+wallet — cancel or finish it ` +
-          `(zap_v2_cancel / redeem) before depositing.`,
-      );
+      throw new Error(`Slot ${opts?.escrowSlot} holds a REDEEM escrow, not a deposit.`);
     }
     escrowPda = existing.escrowPda;
     // The existing escrow's input amount was PINNED at its open; resuming
     // completes THAT amount and ignores the `usdcAmountRaw` just requested.
-    // Surface the mismatch loudly so a caller acting on the requested size
-    // isn't misled into thinking a different amount was deposited.
     if (existing.inputAmount && existing.inputAmount !== usdcAmountRaw) {
       resumedPinnedAmount = existing.inputAmount;
     }
   } else {
-    // 1. OPEN — pull USDC into escrow, pin the plan.
+    // 1. OPEN — pull USDC into escrow, pin the plan (the API picks a free slot).
     const open = await api.prepareZapInOpenV2(vault, usdcAmountRaw, {
       slippageBps: opts?.slippageBps,
       expirySecs: opts?.expirySecs,
     });
+    escrowSlot = open.escrowSlot;
     openSignatures = await submitOpen(config, open, 'deposit', api);
     escrowPda = open.escrowPda;
   }
@@ -340,8 +346,8 @@ export async function runDeposit(
   // 2. POLL — wait for the backend orchestrator to crank every USDC→asset leg.
   //    #61: on timeout/expiry/auto-settle, return a resume-able `pending` rather
   //    than throwing — the escrow keeps self-healing.
-  const pr = await pollUntilReady(api, vault, user, poll);
-  if (!pr.ready) return pendingResult('deposit', vault, escrowPda, openSignatures, pr);
+  const pr = await pollUntilReady(api, vault, user, poll, escrowSlot);
+  if (!pr.ready) return pendingResult('deposit', vault, escrowPda, openSignatures, pr, escrowSlot);
   const ready = pr.status;
 
   // 3. CLOSE — mint_in_kind_v2, forward shares, close escrow. Retries on
@@ -349,8 +355,8 @@ export async function runDeposit(
   const closeSignatures = await closeWithRetry(
     config,
     api,
-    () => api.prepareZapInCloseV2(vault),
-    async () => !(await api.getZapV2Status(vault, user)),
+    () => api.prepareZapInCloseV2(vault, escrowSlot),
+    async () => !(await api.getZapV2Status(vault, user, escrowSlot)),
   );
 
   return {
@@ -383,25 +389,26 @@ export async function runRedeem(
   user: string,
   vault: string,
   sharesRaw: string,
-  opts?: { slippageBps?: number; expirySecs?: number; poll?: Partial<PollOptions> },
+  opts?: { slippageBps?: number; expirySecs?: number; poll?: Partial<PollOptions>; escrowSlot?: number },
 ): Promise<ZapFlowResult> {
   const poll = { ...DEFAULT_POLL, ...(opts?.poll ?? {}) };
 
-  // 0. RESUME GUARD — mirror the deposit path: if a redeem escrow is already
-  //    open, resume it rather than re-burning shares into a second escrow.
-  const existing = await api.getZapV2Status(vault, user);
+  // 0. RESUME only when asked (see runDeposit): a plain call opens a new escrow.
+  const existing =
+    opts?.escrowSlot === undefined ? null : await api.getZapV2Status(vault, user, opts.escrowSlot);
+  if (opts?.escrowSlot !== undefined && !existing) {
+    throw new Error(`No open escrow in slot ${opts.escrowSlot} for this vault+wallet — nothing to resume.`);
+  }
   let openSignatures: string[] = [];
   let escrowPda: string;
+  let escrowSlot: number | undefined = opts?.escrowSlot;
   // Set when resuming an open escrow whose pinned share amount differs from
   // this call. The existing escrow wins; opening it already burned shares and
   // fixed `sharesIn`, so the new request cannot resize the in-flight redeem.
   let resumedPinnedShares: string | null = null;
   if (existing) {
     if (existing.mode !== 1) {
-      throw new Error(
-        `An open DEPOSIT escrow already exists for this vault+wallet — finish or cancel it ` +
-          `(deposit / zap_v2_cancel) before redeeming.`,
-      );
+      throw new Error(`Slot ${opts?.escrowSlot} holds a DEPOSIT escrow, not a redeem.`);
     }
     escrowPda = existing.escrowPda;
     if (existing.sharesIn && existing.sharesIn !== sharesRaw) {
@@ -413,6 +420,7 @@ export async function runRedeem(
       slippageBps: opts?.slippageBps,
       expirySecs: opts?.expirySecs,
     });
+    escrowSlot = open.escrowSlot;
     openSignatures = await submitOpen(config, open, 'redeem', api);
     escrowPda = open.escrowPda;
   }
@@ -420,8 +428,8 @@ export async function runRedeem(
   // 2. POLL — wait for the orchestrator to crank every asset→USDC leg.
   //    #61: a slow/retrying leg (e.g. ORCA→USDC) can self-heal over many minutes;
   //    on timeout/expiry/auto-settle return a resume-able `pending`, not an error.
-  const pr = await pollUntilReady(api, vault, user, poll);
-  if (!pr.ready) return pendingResult('redeem', vault, escrowPda, openSignatures, pr);
+  const pr = await pollUntilReady(api, vault, user, poll, escrowSlot);
+  if (!pr.ready) return pendingResult('redeem', vault, escrowPda, openSignatures, pr, escrowSlot);
   const ready = pr.status;
 
   // 3. CLOSE — apply exit fee, pay net USDC, close escrow. Retries on blockhash
@@ -429,8 +437,8 @@ export async function runRedeem(
   const closeSignatures = await closeWithRetry(
     config,
     api,
-    () => api.prepareZapOutCloseV2(vault),
-    async () => !(await api.getZapV2Status(vault, user)),
+    () => api.prepareZapOutCloseV2(vault, escrowSlot),
+    async () => !(await api.getZapV2Status(vault, user, escrowSlot)),
   );
 
   return {

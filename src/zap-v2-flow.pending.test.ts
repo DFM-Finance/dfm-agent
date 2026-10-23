@@ -72,7 +72,7 @@ async function caseTimeout(): Promise<void> {
     USER,
     VAULT,
     '1000000',
-    { poll: { timeoutSecs: 0.3, intervalSecs: 0.1 } },
+    { escrowSlot: 0, poll: { timeoutSecs: 0.3, intervalSecs: 0.1 } },
   );
   assert(res.ok === true, 'result.ok === true (not an error)');
   assert(res.settlement === 'pending', `settlement === 'pending' (got '${res.settlement}')`);
@@ -101,7 +101,7 @@ async function caseGone(): Promise<void> {
     USER,
     VAULT,
     '1000000',
-    { poll: { timeoutSecs: 5, intervalSecs: 0.1 } },
+    { escrowSlot: 0, poll: { timeoutSecs: 5, intervalSecs: 0.1 } },
   );
   assert(res.ok === true, 'result.ok === true');
   assert(res.settlement === 'pending', `settlement === 'pending' (got '${res.settlement}')`);
@@ -127,7 +127,7 @@ async function caseFreshNullNotGone(): Promise<void> {
     USER,
     VAULT,
     '1000000',
-    { poll: { timeoutSecs: 0.3, intervalSecs: 0.1 } },
+    { escrowSlot: 0, poll: { timeoutSecs: 0.3, intervalSecs: 0.1 } },
   );
   assert(res.settlement === 'pending', `settlement === 'pending' (got '${res.settlement}')`);
   assert(res.pending?.reason === 'timeout', `reason === 'timeout' not 'gone' (got '${res.pending?.reason}')`);
@@ -159,7 +159,7 @@ async function caseRedeemResumeUsesPinnedShares(): Promise<void> {
     USER,
     VAULT,
     '1000000',
-    { poll: { timeoutSecs: 1, intervalSecs: 0.1 } },
+    { escrowSlot: 0, poll: { timeoutSecs: 1, intervalSecs: 0.1 } },
   );
   assert(res.settlement === 'complete', `settlement === 'complete' (got '${res.settlement}')`);
   assert(openCalled === 0, 'prepareZapOutOpenV2 was NOT called');

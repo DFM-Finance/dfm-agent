@@ -1,6 +1,6 @@
 {
   "name": "@dfm-fi/agent",
-  "version": "0.2.2065",
+  "version": "0.2.2084",
   "description": "DFM v2 MCP server — drive the full fund launch → deposit → redeem (+ manage) lifecycle from an AI agent against the live API.",
   "homepage": "https://app.dfm.finance/docs/agent",
   "mcpName": "io.github.DFM-Finance/dfm-agent",

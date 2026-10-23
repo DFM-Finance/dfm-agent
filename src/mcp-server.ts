@@ -483,15 +483,16 @@ server.registerTool(
     inputSchema: {
       vault: z.string().regex(BASE58, 'Invalid base58 vault address'),
       user: z.string().regex(BASE58, 'Invalid base58 user wallet').optional(),
+      escrowSlot: z.number().int().min(0).max(7).optional().describe('Escrow slot 0-7 (from zap_status). A wallet can hold several escrows per fund; omit for the oldest open one.'),
     },
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
-  async ({ vault, user }) => {
+  async ({ vault, user, escrowSlot }) => {
     try {
       const identity = await resolveWalletIdentity();
       const escrowOwner = resolveZapStatusWallet(identity, user);
       if (!escrowOwner) return errText('zap_status could not resolve this agent wallet');
-      const res = await api.getZapV2Status(vault, escrowOwner);
+      const res = await api.getZapV2Status(vault, escrowOwner, escrowSlot);
       return text(res ?? { escrow: null, note: 'No open zap-v2 escrow for this vault+user.' });
     } catch (e) {
       return errText(`zap_status failed: ${(e as Error).message}`);
@@ -1403,17 +1404,18 @@ server.registerTool(
       'just want your funds back. Returns the held balances + the cancel signature.',
     inputSchema: {
       vault: z.string().regex(BASE58, 'Invalid base58 vault address'),
+      escrowSlot: z.number().int().min(0).max(7).optional().describe('Escrow slot 0-7 (from zap_status). A wallet can hold several escrows per fund; omit for the oldest open one.'),
       confirmPhrase: confirmPhraseField,
     },
     annotations: { title: 'DFM zap-v2 cancel', readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
   // REVIEW: real-money path — parent must review before enabling.
-  async ({ vault, confirmPhrase }) => {
+  async ({ vault, escrowSlot, confirmPhrase }) => {
     const gate = confirmGate('zap_v2_cancel', confirmPhrase);
     if (!gate.ok) return gate.result;
     const write = writeGate();
     if (!write.ok) return write.result;
-    return keylessWrite('zap_v2_cancel', { vault });
+    return keylessWrite('zap_v2_cancel', { vault, escrowSlot });
   },
 );
 
@@ -1429,6 +1431,7 @@ server.registerTool(
       'slippage and ≤1000 (onchain monotonic-loosening). Optionally extend expiry. ' +
       'Returns the exact loosening applied (old→new). If it still will not fill, cancel.',
     inputSchema: {
+      escrowSlot: z.number().int().min(0).max(7).optional().describe('Escrow slot 0-7 (from zap_status). A wallet can hold several escrows per fund; omit for the oldest open one.'),
       vault: z.string().regex(BASE58, 'Invalid base58 vault address'),
       loosenPct: z.number().min(0).max(50).optional(),
       newSlippageBps: z.number().int().min(0).max(1000).optional(),
@@ -1438,12 +1441,12 @@ server.registerTool(
     annotations: { title: 'DFM zap-v2 update-envelope', readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
   // REVIEW: real-money path — parent must review before enabling.
-  async ({ vault, loosenPct, newSlippageBps, extendSecs, confirmPhrase }) => {
+  async ({ vault, loosenPct, newSlippageBps, extendSecs, escrowSlot, confirmPhrase }) => {
     const gate = confirmGate('zap_v2_update_envelope', confirmPhrase);
     if (!gate.ok) return gate.result;
     const write = writeGate();
     if (!write.ok) return write.result;
-    return keylessWrite('zap_v2_update_envelope', { vault, loosenPct, newSlippageBps, extendSecs });
+    return keylessWrite('zap_v2_update_envelope', { vault, loosenPct, newSlippageBps, extendSecs, escrowSlot });
   },
 );
 

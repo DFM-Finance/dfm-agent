@@ -76,6 +76,8 @@ export interface VaultDetailResponse {
  */
 export interface ZapV2Status {
   escrowPda: string;
+  /** Escrow slot 0..7 — a wallet can hold several escrows per fund. */
+  escrowSlot?: number;
   vault: string;
   user: string;
   mode: number;
@@ -114,6 +116,8 @@ export interface ZapV2PrepareResponse {
   lastValidBlockHeight: number;
   computeUnits: number;
   escrowPda: string;
+  /** Escrow slot (0..7) the tx acts on. */
+  escrowSlot?: number;
   /** zap-out OPEN additionally returns these (redeem economics). */
   minUsdcOut?: string;
   expectedUsdc?: string;
