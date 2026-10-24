@@ -375,11 +375,12 @@ export class DfmApiClient {
 
   /** The caller's XP plus the top of the leaderboard. */
   async getXp(): Promise<unknown> {
-    const [mine, leaderboard] = await Promise.all([
+    const [mine, leaderboard, rules] = await Promise.all([
       this.authRequest('/xp/me', { method: 'GET' }),
       this.publicRequest('/xp/leaderboard?limit=10'),
+      this.publicRequest('/xp/rules'),
     ]);
-    return { mine, leaderboard };
+    return { mine, leaderboard, rules };
   }
 
   async getProfile(): Promise<{ displayName?: string; username?: string } | null> {

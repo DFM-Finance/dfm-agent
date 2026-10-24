@@ -65,6 +65,7 @@ import { SiwsSession } from './session.js';
 import { DfmApiClient } from './api-client.js';
 import {
   isKeylessMode,
+  hasLocalKeypair,
   executeAppWalletWrite,
   KEYLESS_SETUP_HINT,
 } from './keyless.js';
@@ -112,7 +113,7 @@ export const server = new McpServer(
   { name: 'dfm-agent', version: PKG_VERSION },
   {
     instructions:
-      'DFM agent — drive funds on Solana MAINNET via the DFM v2 API. A fund is an onchain ETF-like basket; you create them, deposit USDC (auto-swapped into the basket), rebalance, and redeem. This is the complete operating manual — follow the workflows below.\n\n' +
+      'DFM agent — drive funds on Solana MAINNET via the DFM v2 API. DFM is a permissionless launchpad for decentralized onchain funds: a fund is an onchain basket of Solana tokens; you create them, deposit USDC (auto-swapped into the basket), rebalance, and redeem — and you can also buy and sell any Solana token from the app wallet. Call a fund an onchain fund, never an ETF or a DTF. This is the complete operating manual — follow the workflows below.\n\n' +
       '## START EVERY SESSION\n' +
       '• Call `whoami` FIRST. It returns the human profile plus explicit app-wallet and sign-in-wallet roles, cluster, and whether WRITE is enabled. A local keypair is NEVER exposed.\n\n' +
       '## READ tools (safe, no funds, no gate)\n' +
@@ -125,6 +126,7 @@ export const server = new McpServer(
       '• CREATE a vault → `launch_vault {name, symbol, assets:[{mint,symbol,allocationBps}]}`. allocationBps MUST sum to 10000; 2–10 assets, USDC included: USDC is the required cash sleeve, counts even at 0% (the API adds it at 0% if omitted), so at most 9 other tokens, each above 0 bps. Entry/exit fees and their split are FACTORY-GLOBAL and read live — the creator cannot set them, and there is NO management fee. Rebalancer initialization is normally bundled; if transaction size or program availability defers it, the result says so and `init_rebalancer` completes it. Then make the first deposit (the API sets no minimum amount).\n' +
       '• DEPOSIT USDC → `deposit {vault, usdcAmount, expirySecs?}`. Opens a zap-v2 escrow; swaps and the automatic close that mints shares continue asynchronously. A `status:"pending"` result is not settled. Poll `zap_status {vault}` and verify shares/holdings with `get_portfolio`; do not repeat deposit to poll. Needed before you can rebalance (the vault must hold assets).\n' +
       '• REDEEM shares → USDC → `redeem {vault, shares, expirySecs?}` (raw shares). Also asynchronous: `status:"pending"` is not settled. Poll `zap_status {vault}`, then verify the USDC payout/holdings with `app_wallet`; do not repeat redeem to poll. For both tools, expirySecs controls the escrow lifetime (default 300, integer 60–1800), not how long the MCP call waits.\n' +
+      '• BUY / SELL a token → `swap_quote {inputMint, outputMint, amountRaw}`, then `swap` with the same fields. Converts what the app wallet holds into any token Jupiter routes; the quote already includes the DFM fee, so its output is what the user receives. Never touches a fund — to put money into a fund use `deposit`.\n' +
       '• REBALANCE (converge to config) → `rebalance_to_targets {vault, slippageBps?}`. CONFIG IS THE SINGLE SOURCE OF TRUTH — you supply NO inputMint/outputMint/amount. The API derives the converging swap legs from the drift between live holdings and the vault\'s REGISTERED target weights (sell-overweight → buy-underweight), returns them as ordered admin-signed execute_rebalance txs, and the tool signs + submits them IN ORDER (5s onchain cooldown between legs). The vault must HOLD assets (i.e. after a deposit) and have its rebalancer initialized. Onchain guards are ORACLE-FREE: a measured `min_out` floor + hardcoded velocity ceilings (50%/tx for a delegated cranker, ≥5s between rebalances, 48/day) + an output-mint allowlist, so a value-leaking route reverts. Returns `converged:true` with no swaps if already within tolerance. The free-form swap-any-to-any surface is GONE — a rebalance only ever converges holdings to the current config.\n' +
       '• CHANGE TARGETS → `update_vault_assets {vault, assets:[...]}`. This is config-only. To remove a funded mint: first keep it at 0% while adding/reweighting the survivors, call `rebalance_to_targets` to drain it, verify it is empty, then call `update_vault_assets` again to drop it. The same staged mechanic is used in keypair and keyless mode.\n' +
       '• ENABLE rebalancing on an OLDER vault that lacks a config → `init_rebalancer {vault}` (NOT needed for vaults made with launch_vault — they already have it).\n' +
@@ -886,7 +888,10 @@ server.registerTool(
   'xp_status',
   {
     title: 'XP',
-    description: "The user's XP (total and by kind: deposit, launch, profile, referral) and the top of the XP leaderboard.",
+    description:
+      "The user's XP (total and by kind: deposit, launch, profile, referral), the top of the XP leaderboard, and HOW XP is " +
+      'earned: `rules.howToEarn` lists every action with what it pays and what it waits for, `rules.doesNotEarn` what never ' +
+      'counts. Answer any "how do I earn XP / why did this not pay" from here, never from memory.',
     inputSchema: {},
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
@@ -911,6 +916,27 @@ server.registerTool(
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
   async () => {
+    // A fresh headless agent has neither an API key nor an identity keypair
+    // yet. That is the START of onboarding, not a failure: answering with the
+    // signing layer's "No test keypair configured" error sent a model that
+    // followed "call whoami first" off to hand-install a keypair.
+    if (!isKeylessMode(config) && !hasLocalKeypair(config)) {
+      return text({
+        onboarded: false,
+        displayName: null,
+        signInWallet: null,
+        appWalletAddress: null,
+        setupHint:
+          'No DFM identity on this machine yet. Run onboard (it creates the identity keypair, signs in, ' +
+          `sets the profile and creates the app wallet): ${ONBOARDING_ORDER}. To operate a human's account ` +
+          'instead, install with --api-key dfm_… (minted at app.dfm.finance → Agent → Keys).',
+        confirmPhraseRequired:
+          process.env.DFM_MCP_CONFIRM_REQUIRED === '1' && process.env.DFM_MCP_NONINTERACTIVE_WRITES !== '1',
+        apiUrl: config.apiUrl,
+        cluster: config.cluster,
+        writeEnabled: config.writeEnabled,
+      });
+    }
     try {
       const [{ identity, op }, profile, float] = await Promise.all([
         resolveWalletIdentityWithOp(),
