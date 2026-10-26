@@ -264,8 +264,8 @@ export function storeApiKey(
  * sync): a launch with share-mint metadata needs 0.023 SOL (create + rebalancer)
  * + 0.00511 SOL metadata rent floor + 0.01 SOL Metaplex fee = 0.03811 SOL; each
  * deposit's precheck needs 0.02 SOL more. USDC: the factory seed (0.1 USDC
- * today, read live by the API) plus the deposit itself. The API enforces NO
- * minimum first-deposit amount, so none is quoted here.
+ * today, read live by the API) plus the deposit itself, at least $1 (the
+ * deposit minimum the app and this client enforce; the API sets none).
  */
 export const LAUNCH_MIN_LAMPORTS = 38_110_731;
 export const DEPOSIT_MIN_LAMPORTS = 20_000_000;
@@ -286,7 +286,7 @@ export function fundingNextStep(f: FundingInput): string | null {
   const have = `App wallet ${f.appWallet} holds ${f.usdcMicros / 1e6} USDC and ${f.solLamports / 1e9} SOL.`;
   const need =
     'To launch a fund and make its first deposit it needs: USDC = 0.1 (factory seed, read live at launch) + the ' +
-    'amount you will deposit (the API sets no minimum deposit), and SOL ≥ 0.0381 for the launch (0.023 without ' +
+    'amount you will deposit (minimum $1, as in the app), and SOL ≥ 0.0381 for the launch (0.023 without ' +
     'share-mint metadata) + 0.02 per deposit — about 0.06 SOL total.';
   if (f.keyless) {
     return `${have} ${need} This MCP runs on an API key (no local keypair), so it cannot sign a top-up: send USDC + SOL to the app wallet address from any wallet (an agent\'s or a person\'s, it does not matter), or fund it at https://app.dfm.finance/account.`;
