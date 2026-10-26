@@ -567,9 +567,10 @@ server.registerTool(
       } catch {
         /* balance is additive detail, not the answer */
       }
-      // A leg whose onchain read failed is null: it stays null ("unavailable"), never 0.
-      const usdc = bal && bal.usdcMicros === null ? null : (bal?.usdcMicros ?? 0) / 1_000_000;
-      const sol = bal && bal.solLamports === null ? null : (bal?.solLamports ?? 0) / 1_000_000_000;
+      // No balance (the call failed, or a leg's onchain read failed or is absent) is
+      // UNKNOWN: it stays null ("unavailable"), never 0 (v.2222 /propagate finding).
+      const usdc = bal?.usdcMicros == null ? null : bal.usdcMicros / 1_000_000;
+      const sol = bal?.solLamports == null ? null : bal.solLamports / 1_000_000_000;
 
       // Status first: an inactive wallet cannot sign however well funded it is.
       let nextStep: string;
@@ -579,11 +580,9 @@ server.registerTool(
         nextStep =
           `Revoked — nothing will sign. Withdraw anything left at ${SETUP_URL}, then create ` +
           'a new one (a re-arm mints a BRAND-NEW address).';
-      } else if (!bal) {
-        nextStep = 'Active. Balance unavailable from this API version.';
       } else if (usdc === null || sol === null) {
         nextStep =
-          'Active. Balance unavailable right now (the onchain read failed): it is UNKNOWN, not 0. ' +
+          'Active. Balance unavailable right now (the balance read failed): it is UNKNOWN, not 0. ' +
           'Do not fund or report a shortfall on it; call app_wallet again.';
       } else if (usdc <= 0 && sol <= 0) {
         nextStep = 'Active but empty. Send USDC + a little SOL to its address from any wallet, ' +
@@ -620,11 +619,13 @@ server.registerTool(
             }
           : {}),
         balance: { usdc, sol },
+        ...(usdc === null || sol === null ? { balanceUnavailable: true } : {}),
         ...(bal
           ? {
               withdrawable: {
-                usdc: bal.withdrawableUsdcMicros === null ? null : bal.withdrawableUsdcMicros / 1_000_000,
-                sol: bal.withdrawableSolLamports === null ? null : bal.withdrawableSolLamports / 1_000_000_000,
+                // == null: an older API omits these fields (undefined / 1e6 = NaN).
+                usdc: bal.withdrawableUsdcMicros == null ? null : bal.withdrawableUsdcMicros / 1_000_000,
+                sol: bal.withdrawableSolLamports == null ? null : bal.withdrawableSolLamports / 1_000_000_000,
               },
             }
           : {}),
@@ -955,7 +956,7 @@ server.registerTool(
         appWalletFloat().catch(() => null),
       ]);
       // A failed onchain read (null leg) is UNKNOWN: never compute a shortfall from it.
-      const floatUnknown = float?.usdcMicros === null || float?.solLamports === null;
+      const floatUnknown = !!float && (float.usdcMicros == null || float.solLamports == null);
       const fundingStep =
         float?.address && op?.status === 'active' && floatUnknown
           ? `App wallet ${float.address} balance unavailable right now (the onchain read failed): UNKNOWN, not 0. Call app_wallet again before funding it.`
@@ -1740,7 +1741,7 @@ server.registerTool(
     try {
       const float = await api.getOperatingFloatBalance();
       // An unknown leg cannot prove the old wallet is empty: refuse, never read it as 0.
-      if (float && (float.usdcMicros === null || float.solLamports === null)) {
+      if (float && (float.usdcMicros == null || float.solLamports == null)) {
         return errText(
           'app_wallet_rearm refused: the current app wallet balance is unavailable right now ' +
             '(the onchain read failed), so it cannot be confirmed empty. Retry in a moment.',

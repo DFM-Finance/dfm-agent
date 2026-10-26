@@ -377,7 +377,7 @@ export async function runOnboard(deps: OnboardDeps): Promise<Record<string, unkn
   let balanceUnknown: string | null = null;
   if (deps.getBalance) {
     const bal = await deps.getBalance().catch(() => null);
-    if (bal?.address && (bal.usdcMicros === null || bal.solLamports === null)) {
+    if (bal?.address && (bal.usdcMicros == null || bal.solLamports == null)) {
       // Never compute a shortfall from a failed read: that is how a funded
       // wallet gets told to add SOL it already holds (2026-10-26).
       balanceUnknown =
