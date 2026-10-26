@@ -140,6 +140,11 @@ assert.ok(!/\$12|12 USDC/.test(nxt), 'no invented minimum deposit');
 const funded = await runOnboard({ identity: () => id, getProfile: async () => ({ wallet: W, displayName: 'Agent', effectiveAvatarUri: 'https://x/a.webp' }), createAppWallet: async () => ({ status: 'active' }), getBalance: async () => ({ address: APPW, usdcMicros: 20_000_000, solLamports: LAUNCH_MIN_LAMPORTS + DEPOSIT_MIN_LAMPORTS }) });
 assert.equal(funded.missingStep, undefined);
 assert.match(String(funded.next), /launch_vault/);
+// onboard_unknown_balance: a failed onchain SOL read (null) is UNKNOWN — no "0 SOL", no fund step (2026-10-26).
+const unknownBal = await runOnboard({ identity: () => id, getProfile: async () => ({ wallet: W, displayName: 'Agent', effectiveAvatarUri: 'https://x/a.webp' }), createAppWallet: async () => ({ status: 'active' }), getBalance: async () => ({ address: APPW, usdcMicros: 20_000_000, solLamports: null }) });
+assert.equal(unknownBal.missingStep, undefined, 'a failed read is not a missing funding step');
+assert.match(String(unknownBal.next), /balance unavailable/);
+assert.ok(!/0 SOL|app_wallet_fund/.test(String(unknownBal.next)), 'never reads a failed read as 0 SOL');
 const keylessStep = fundingNextStep({ identityPubkey: null, appWallet: APPW, usdcMicros: 0, solLamports: 0, keyless: true, writeEnabled: true });
 assert.ok(keylessStep?.includes('app.dfm.finance/account') && !keylessStep.includes('app_wallet_fund {usdc'), 'keyless: the human funds in the app');
 assert.equal(fundingNextStep({ identityPubkey: W, appWallet: APPW, usdcMicros: 100_000, solLamports: 1e9, keyless: false, writeEnabled: true }), fundingNextStep({ identityPubkey: W, appWallet: APPW, usdcMicros: 100_000, solLamports: 1e9, keyless: false, writeEnabled: true }));

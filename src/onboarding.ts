@@ -334,7 +334,8 @@ export interface OnboardDeps {
   getProfile(): Promise<{ wallet?: string; displayName?: string; effectiveAvatarUri?: string | null } | null>;
   createAppWallet(): Promise<Record<string, unknown>>;
   /** Optional: the app wallet's live float, to print the funding step. */
-  getBalance?(): Promise<{ address?: string | null; usdcMicros?: number; solLamports?: number } | null>;
+  /** A null leg = that onchain read failed: UNKNOWN, never 0. */
+  getBalance?(): Promise<{ address?: string | null; usdcMicros?: number | null; solLamports?: number | null } | null>;
   keyless?: boolean;
   writeEnabled?: boolean;
 }
@@ -373,9 +374,16 @@ export async function runOnboard(deps: OnboardDeps): Promise<Record<string, unkn
   }
   const appWallet = await deps.createAppWallet();
   let funding: string | null = null;
+  let balanceUnknown: string | null = null;
   if (deps.getBalance) {
     const bal = await deps.getBalance().catch(() => null);
-    if (bal?.address) {
+    if (bal?.address && (bal.usdcMicros === null || bal.solLamports === null)) {
+      // Never compute a shortfall from a failed read: that is how a funded
+      // wallet gets told to add SOL it already holds (2026-10-26).
+      balanceUnknown =
+        `App wallet ${bal.address} balance unavailable right now (the onchain read failed): UNKNOWN, not 0. ` +
+        'Call app_wallet before funding it.';
+    } else if (bal?.address) {
       funding = fundingNextStep({
         identityPubkey: identity.publicKey,
         appWallet: bal.address,
@@ -393,7 +401,9 @@ export async function runOnboard(deps: OnboardDeps): Promise<Record<string, unkn
     ...(funding ? { missingStep: 'fund_app_wallet' } : {}),
     next: funding
       ? `${funding} Optional afterwards: create_api_key {name} for other processes.`
-      : 'Funded. Optional: create_api_key {name} for other processes. Next: launch_vault.',
+      : balanceUnknown
+        ? `${balanceUnknown} Optional: create_api_key {name} for other processes.`
+        : 'Funded. Optional: create_api_key {name} for other processes. Next: launch_vault.',
     order: ONBOARDING_ORDER,
   };
 }

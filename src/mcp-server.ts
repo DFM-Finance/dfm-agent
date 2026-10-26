@@ -567,8 +567,9 @@ server.registerTool(
       } catch {
         /* balance is additive detail, not the answer */
       }
-      const usdc = (bal?.usdcMicros ?? 0) / 1_000_000;
-      const sol = (bal?.solLamports ?? 0) / 1_000_000_000;
+      // A leg whose onchain read failed is null: it stays null ("unavailable"), never 0.
+      const usdc = bal && bal.usdcMicros === null ? null : (bal?.usdcMicros ?? 0) / 1_000_000;
+      const sol = bal && bal.solLamports === null ? null : (bal?.solLamports ?? 0) / 1_000_000_000;
 
       // Status first: an inactive wallet cannot sign however well funded it is.
       let nextStep: string;
@@ -580,6 +581,10 @@ server.registerTool(
           'a new one (a re-arm mints a BRAND-NEW address).';
       } else if (!bal) {
         nextStep = 'Active. Balance unavailable from this API version.';
+      } else if (usdc === null || sol === null) {
+        nextStep =
+          'Active. Balance unavailable right now (the onchain read failed): it is UNKNOWN, not 0. ' +
+          'Do not fund or report a shortfall on it; call app_wallet again.';
       } else if (usdc <= 0 && sol <= 0) {
         nextStep = 'Active but empty. Send USDC + a little SOL to its address from any wallet, ' +
           `or use \`app_wallet_fund {usdc, sol}\` from this agent's identity wallet, or ${SETUP_URL}.`;
@@ -616,7 +621,12 @@ server.registerTool(
           : {}),
         balance: { usdc, sol },
         ...(bal
-          ? { withdrawable: { usdc, sol: bal.withdrawableSolLamports / 1_000_000_000 } }
+          ? {
+              withdrawable: {
+                usdc: bal.withdrawableUsdcMicros === null ? null : bal.withdrawableUsdcMicros / 1_000_000,
+                sol: bal.withdrawableSolLamports === null ? null : bal.withdrawableSolLamports / 1_000_000_000,
+              },
+            }
           : {}),
         nextStep,
         ...policyUpdateNotice(grant),
@@ -944,8 +954,12 @@ server.registerTool(
         api.getProfile().catch(() => null),
         appWalletFloat().catch(() => null),
       ]);
+      // A failed onchain read (null leg) is UNKNOWN: never compute a shortfall from it.
+      const floatUnknown = float?.usdcMicros === null || float?.solLamports === null;
       const fundingStep =
-        float?.address && op?.status === 'active'
+        float?.address && op?.status === 'active' && floatUnknown
+          ? `App wallet ${float.address} balance unavailable right now (the onchain read failed): UNKNOWN, not 0. Call app_wallet again before funding it.`
+          : float?.address && op?.status === 'active'
           ? fundingNextStep({
               identityPubkey: isKeylessMode(config) ? null : session.walletAddress ?? null,
               appWallet: float.address,
@@ -1129,7 +1143,7 @@ async function resolveWalletIdentity(): Promise<WalletIdentity> {
 
 /** Same lookup, also handing back the raw grant (whoami reads `policyUpdateRequired` off it). */
 /** The app wallet's address + live float, or null when there is no app wallet / no balance route. */
-async function appWalletFloat(): Promise<{ address: string | null; usdcMicros?: number; solLamports?: number } | null> {
+async function appWalletFloat(): Promise<{ address: string | null; usdcMicros?: number | null; solLamports?: number | null } | null> {
   const op = await api.getOperatingWallet().catch(() => null);
   if (!op?.operatingWalletAddress) return null;
   const bal = await api.getOperatingFloatBalance().catch(() => null);
@@ -1725,6 +1739,13 @@ server.registerTool(
     if (!write.ok) return write.result;
     try {
       const float = await api.getOperatingFloatBalance();
+      // An unknown leg cannot prove the old wallet is empty: refuse, never read it as 0.
+      if (float && (float.usdcMicros === null || float.solLamports === null)) {
+        return errText(
+          'app_wallet_rearm refused: the current app wallet balance is unavailable right now ' +
+            '(the onchain read failed), so it cannot be confirmed empty. Retry in a moment.',
+        );
+      }
       const usdc = float?.usdcMicros ?? 0;
       const sol = float?.solLamports ?? 0;
       // The stranding guard: a re-arm cannot move the old wallet's balance, so

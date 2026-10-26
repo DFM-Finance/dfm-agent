@@ -398,11 +398,12 @@ export class DfmApiClient {
   async getOperatingFloatBalance(): Promise<{
     operatingWalletAddress: string;
     status: string;
-    solLamports: number;
-    usdcMicros: number;
-    reservedSolLamports: number;
-    withdrawableSolLamports: number;
-    withdrawableUsdcMicros: number;
+    // null = that onchain read failed on the server: UNKNOWN, never 0.
+    solLamports: number | null;
+    usdcMicros: number | null;
+    reservedSolLamports: number | null;
+    withdrawableSolLamports: number | null;
+    withdrawableUsdcMicros: number | null;
   } | null> {
     return this.authRequest('/agent/operating/float/balance', { method: 'GET' });
   }
