@@ -1,6 +1,6 @@
 {
   "name": "@dfm-fi/agent",
-  "version": "0.2.2157",
+  "version": "0.2.2177",
   "description": "DFM v2 MCP server — drive the full fund launch → deposit → redeem (+ manage) lifecycle from an AI agent against the live API.",
   "homepage": "https://app.dfm.finance/docs/agent",
   "mcpName": "io.github.DFM-Finance/dfm-agent",
@@ -55,7 +55,7 @@
     "lint": "eslint .",
     "example:read": "tsx src/examples/list-and-status.ts",
     "example:lifecycle": "tsx src/examples/launch-deposit-redeem.ts",
-    "test": "npm run build && node scripts/smoke-signing.mjs && node scripts/smoke-signing-v1.mjs &&node scripts/smoke-cli.mjs && node scripts/smoke-keyless.mjs && node scripts/smoke-zap-options.mjs && tsx src/who-pays.test.ts && tsx src/wallet-identity.test.ts && tsx src/money-path.test.ts && tsx src/control-flow.test.ts && tsx src/create-flow.metadata.test.ts && tsx src/manager-flow.reconfigure.test.ts && tsx src/recovery-flow.deadleg.test.ts && tsx src/zap-v2-flow.pending.test.ts && tsx src/mcp-server.confirm-gate.test.ts && tsx src/app-wallet-owner.test.ts && tsx src/onboarding.test.ts && tsx src/default-avatar.test.ts && tsx src/client-header.test.ts && tsx src/owner-actions.test.ts && tsx src/owner-rebalance.test.ts && tsx src/token-search.test.ts && tsx src/fees.test.ts"
+    "test": "npm run build && node scripts/smoke-signing.mjs && node scripts/smoke-signing-v1.mjs &&node scripts/smoke-cli.mjs && node scripts/smoke-keyless.mjs && node scripts/smoke-zap-options.mjs && tsx src/who-pays.test.ts && tsx src/wallet-identity.test.ts && tsx src/money-path.test.ts && tsx src/control-flow.test.ts && tsx src/create-flow.metadata.test.ts && tsx src/manager-flow.reconfigure.test.ts && tsx src/recovery-flow.deadleg.test.ts && tsx src/zap-v2-flow.pending.test.ts && tsx src/mcp-server.confirm-gate.test.ts && tsx src/mcp-server.error-hints.test.ts && tsx src/app-wallet-owner.test.ts && tsx src/onboarding.test.ts && tsx src/default-avatar.test.ts && tsx src/client-header.test.ts && tsx src/owner-actions.test.ts && tsx src/owner-rebalance.test.ts && tsx src/token-search.test.ts && tsx src/fees.test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",

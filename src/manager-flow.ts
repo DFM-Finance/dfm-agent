@@ -21,8 +21,9 @@ import type {
 import { signBase64Transaction } from './signing.js';
 import { submitSignedTx, BlockhashExpiredError } from './submit.js';
 
-/** On-chain rebalance cooldown (5s) — keep a small margin so back-to-back legs
- *  never trip `HARD_MIN_REBALANCE_INTERVAL_SECS`. */
+/** On-chain rebalance cooldown: the vault's own `min_rebalance_interval` (5s as the
+ *  API initializes it). 6s keeps a margin over that default; a creator who raised
+ *  the interval gets `RebalanceTooFrequent` on the next leg (named in the MCP hints). */
 const REBALANCE_COOLDOWN_MS = 6_000;
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -130,8 +131,8 @@ export function validateManagerBasket(assets: CreateAssetInput[]): void {
 
 /**
  * Rebalance the vault's basket — a FULL REPLACE with the new target weights.
- * Only works on a vault the test wallet admins, in MANUAL rebalance mode, outside
- * the 24h config timelock (the API returns a clear 4xx otherwise). prepare → sign
+ * Only works on a vault the test wallet admins, in MANUAL rebalance mode (the API
+ * returns a clear 4xx otherwise). prepare → sign
  * → submit → confirm (confirm is bookkeeping: on failure the on-chain change still
  * stands, surfaced as confirmError so it's never silently lost).
  */
@@ -386,7 +387,7 @@ export async function runReconfigure(
 /**
  * Sign + submit a list of pre-prepared converge legs (each its OWN blockhash)
  * IN ORDER, sleeping the 5s on-chain rebalance cooldown between legs. Each leg is
- * an admin-signed `execute_rebalance` (on-chain velocity-ceiling + min_out guarded, oracle-free).
+ * an admin-signed `execute_rebalance` (on-chain interval + min_out + output-mint allowlist guarded, oracle-free).
  */
 async function submitConvergeLegs(
   config: AgentConfig,
