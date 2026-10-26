@@ -264,6 +264,6 @@ export async function runLaunchVault(
         : `⚠️ Share-mint metadata NOT attached${metadataError ? ` (${metadataError})` : ''} — ` +
           `the share token will show no name/ticker. Retry by calling launch_vault's metadata step ` +
           `again or POST /vaults/${prepared.vaultAddress}/metadata/prepare. `) +
-      `Fund the first deposit ≥ ~$12 to clear the $10 floor.`,
+      `Next: the first deposit (minimum $1 = "1000000" raw USDC).`,
   };
 }

@@ -1208,7 +1208,7 @@ server.registerTool(
       'wallets show the fund (#47, non-fatal); `metadata:false` skips its ' +
       'unrecoverable rent (attach it later from the vault page). Names and symbols ' +
       'must be unique among active funds (case-insensitive). Returns the vault ' +
-      'address — fund the first deposit ≥ ~$12.',
+      'address — then make the first deposit (minimum $1 = "1000000").',
     inputSchema: {
       name: z.string().min(1).max(32),
       symbol: z

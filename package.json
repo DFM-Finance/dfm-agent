@@ -1,6 +1,6 @@
 {
   "name": "@dfm-fi/agent",
-  "version": "0.2.2232",
+  "version": "0.2.2242",
   "description": "DFM v2 MCP server — drive the full fund launch → deposit → redeem (+ manage) lifecycle from an AI agent against the live API.",
   "homepage": "https://app.dfm.finance/docs/agent",
   "mcpName": "io.github.DFM-Finance/dfm-agent",
@@ -62,7 +62,7 @@
     "@solana/web3.js": "^1.99.0",
     "bs58": "^4.0.1",
     "tweetnacl": "^1.0.3",
-    "zod": "^3.25.0"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

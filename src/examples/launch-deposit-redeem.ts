@@ -24,7 +24,7 @@
  *   npx tsx src/examples/launch-deposit-redeem.ts
  *
  * Optional env:
- *   DEPOSIT_USDC_RAW   default "12000000" ($12 — clears the $10 first-mint floor)
+ *   DEPOSIT_USDC_RAW   default "12000000" ($12; the deposit minimum is $1 = "1000000")
  *   REDEEM_SHARES_RAW  if set, redeems exactly this many raw shares; if unset the
  *                      script reads the share balance from the portfolio and
  *                      redeems the full position.
