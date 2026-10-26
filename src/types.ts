@@ -42,8 +42,10 @@ export interface VaultListItem {
   tvl?: string | number;
   /** Share price as a number (USDC per share). */
   sharePrice?: number;
-  entryFeeBps?: number;
-  exitFeeBps?: number;
+  /** null when the live factory read failed — see `feesUnavailable`. Never read null as 0. */
+  entryFeeBps?: number | null;
+  exitFeeBps?: number | null;
+  feesUnavailable?: boolean;
   totalSupply?: string;
   totalShares?: string;
   totalDepositors?: number;
@@ -65,7 +67,17 @@ export interface VaultDetailResponse {
   status?: unknown;
   currentWeights?: unknown;
   deviations?: unknown;
-  feeStructure?: unknown;
+  feeStructure?: FeeStructure;
+}
+
+/** `feeStructure` of `GET /vaults/:address`. Factory-global; null fields + `feesUnavailable` on a failed read. */
+export interface FeeStructure {
+  entryFeeBps: number | null;
+  exitFeeBps: number | null;
+  managementFeeBps?: number;
+  creatorFeeRatioBps: number | null;
+  platformFeeRatioBps: number | null;
+  feesUnavailable?: boolean;
 }
 
 /**

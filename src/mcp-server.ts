@@ -79,6 +79,7 @@ import { ONBOARDING_ORDER, ensureIdentityWallet, fundingNextStep, mintAndStoreKe
 import { makeIdentityGuard, makeKeyOwnerLookup, makeSessionFetch, onboardingApi } from './onboarding-api.js';
 import { existingOwnerKey, fetchOwnQuote, runOwnerAction, type OwnerActionInput } from './owner-actions.js';
 import { runOwnerRebalance } from './owner-rebalance.js';
+import { presentFees, withFeesNote } from './fees.js';
 import { Connection } from '@solana/web3.js';
 import {
   buildWalletIdentity,
@@ -271,6 +272,7 @@ server.registerTool(
       'List funds from the live DFM v2 API (GET /vaults) — the same filter, ' +
       'sort and search surface the marketplace page uses. Returns address, ' +
       'name/symbol, status, TVL, share price, fees, and basket allocations. ' +
+      'Fees null with feesUnavailable:true mean the live read failed: say fees are unavailable right now, never 0. ' +
       'Filters: category (7 Fun, 8 RWA, 3 AI, 9 Stocks, 4 Gaming, 1 DeFi, 10 Infra, 255 custom), search (name), creator ' +
       '(wallet), sortBy + sortDir, page, limit (max 50).',
     inputSchema: {
@@ -297,10 +299,7 @@ server.registerTool(
         status: v.status ?? (v.closed ? 'closed' : v.paused ? 'paused' : 'active'),
         tvl: v.tvl,
         sharePrice: v.sharePrice,
-        fees: {
-          entryBps: v.entryFeeBps,
-          exitBps: v.exitFeeBps,
-        },
+        fees: presentFees(v.entryFeeBps, v.exitFeeBps, v.feesUnavailable),
         assets: (v.underlyingAssets ?? []).map((a) => ({
           mint: a.mint,
           symbol: a.symbol,
@@ -323,6 +322,7 @@ server.registerTool(
     description:
       'Get full detail for one vault from the live API (GET /vaults/:address): ' +
       'the vault doc plus current weights, deviations, fee structure, and TVL cap. ' +
+      'If feeStructure.feesUnavailable is true (fee fields null), say fees are unavailable right now, never 0. ' +
       'Use the base58 vault address from list_dtfs.',
     inputSchema: {
       address: z.string().regex(BASE58, 'Invalid base58 vault address'),
@@ -332,7 +332,7 @@ server.registerTool(
   async ({ address }) => {
     try {
       const res = await api.getVault(address);
-      return text(res);
+      return text(withFeesNote(res));
     } catch (e) {
       return errText(`get_vault failed: ${(e as Error).message}`);
     }
