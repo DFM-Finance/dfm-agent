@@ -42,7 +42,8 @@ assert(props.logoUri?.type === 'string', 'launch_vault accepts logoUri');
 assert(/CANNOT be changed after launch/.test(props.logoUri?.description ?? ''), 'logoUri says it cannot be changed after launch');
 assert(/ask your human/i.test(props.logoUri?.description ?? ''), 'logoUri tells the host model to ask the human');
 assert(!/ipfs:\/\//.test(props.logoUri?.description ?? ''), 'logoUri names no ipfs:// link (the ingest does not fetch one)');
-assert(/DFM optimises and stores it/.test(props.logoUri?.description ?? ''), 'logoUri says DFM optimises and stores the link');
+assert(/GIPHY page link works/.test(props.logoUri?.description ?? ''), 'logoUri says a GIPHY page link is accepted');
+assert(/converts it to WebP under 2 MB/.test(props.logoUri?.description ?? ''), 'logoUri says DFM converts and stores the link');
 assert(/cannot be changed/.test(launch?.description ?? ''), 'launch_vault description states the image is permanent');
 assert(/explicitly decline/.test(launch?.description ?? ''), 'launch_vault launches without an image only after a decline');
 assert(

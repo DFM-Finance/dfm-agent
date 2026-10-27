@@ -1243,7 +1243,7 @@ server.registerTool(
       logoUri: z
         .string()
         .optional()
-        .describe('Fund image: a public link to an image, GIF or video (DFM optimises and stores it). Optional but strongly recommended; it CANNOT be changed after launch, so ask your human before launching.'),
+        .describe('Fund image: a public link to an image or GIF (up to 10 MB; a GIPHY page link works) or a short video. DFM converts it to WebP under 2 MB (animated for GIF/video) and stores it. Optional but strongly recommended; it CANNOT be changed after launch, so ask your human before launching.'),
       // Opt-out, never a default: the metadata tx is ~0.015 SOL of rent that
       // never comes back, and the SOL floor drops from ~0.045 to ~0.03 without
       // it. `attach_metadata` can add it later (creator-signed), with the launch image.
