@@ -38,45 +38,12 @@ export interface UpdateAssetsResult {
   message: string;
 }
 
-export interface TransferAdminResult {
-  ok: boolean;
-  vault: string;
-  signature: string;
-  newAdmin: string;
-  message: string;
-}
-
 export interface AcceptAdminTransferResult {
   ok: true;
   reconciled: true;
   vault: string;
   signature: string;
   vaultAdmin: string;
-  message: string;
-}
-
-export interface InitRebalancerResult {
-  ok: boolean;
-  vault: string;
-  signature: string;
-  rebalancerConfig?: string;
-  message: string;
-}
-
-export interface RebalanceToTargetsResult {
-  ok: boolean;
-  vault: string;
-  converged: boolean;
-  legCount: number;
-  /** One signature per submitted converge leg, in order. */
-  signatures: string[];
-  legs: Array<{
-    inputMint: string;
-    outputMint: string;
-    amountIn: string;
-    valueUsdc: number;
-    signature?: string;
-  }>;
   message: string;
 }
 

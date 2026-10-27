@@ -24,7 +24,6 @@
  */
 import type { AgentConfig } from './config.js';
 import type { DfmApiClient } from './api-client.js';
-import type { ZapV2Status } from './types.js';
 import { signBase64Transaction } from './signing.js';
 import { submitSignedTx } from './submit.js';
 
@@ -38,15 +37,6 @@ function safeBig(s: string | undefined | null): bigint {
   } catch {
     return 0n;
   }
-}
-
-export interface CancelResult {
-  ok: boolean;
-  vault: string;
-  signature: string;
-  /** The escrow as last seen before cancel (held balances, for the operator). */
-  escrowBefore: Pick<ZapV2Status, 'mode' | 'state' | 'legsFilled' | 'legsTotal' | 'minOuts' | 'actualOuts'>;
-  message: string;
 }
 
 export interface UpdateEnvelopeResult {
