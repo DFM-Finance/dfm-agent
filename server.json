@@ -6,12 +6,12 @@
   "websiteUrl": "https://app.dfm.finance/docs/agent",
   "icons": [{ "src": "https://raw.githubusercontent.com/DFM-Finance/dfm-agent/main/icon.png", "mimeType": "image/png", "sizes": ["512x512"] }],
   "repository": { "url": "https://github.com/DFM-Finance/dfm-agent", "source": "github" },
-  "version": "0.2.2263",
+  "version": "0.2.2280",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@dfm-fi/agent",
-      "version": "0.2.2263",
+      "version": "0.2.2280",
       "transport": { "type": "stdio" },
       "environmentVariables": [
         { "name": "DFM_API_KEY", "description": "dfm_ API key from app.dfm.finance → Agent → Keys (read-only by default). Optional for public reads.", "isRequired": false, "isSecret": true },
