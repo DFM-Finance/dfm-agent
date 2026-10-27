@@ -1,7 +1,7 @@
 {
   "name": "dfm",
   "description": "Launch and operate onchain funds on Solana from Claude Code: the DFM MCP server + the dfm-fund-manager skill. Read-only by default.",
-  "version": "0.2.2280",
+  "version": "0.2.2290",
   "author": { "name": "DFM Finance", "url": "https://app.dfm.finance" },
   "homepage": "https://app.dfm.finance/docs/agent",
   "repository": "https://github.com/DFM-Finance/dfm-agent",
