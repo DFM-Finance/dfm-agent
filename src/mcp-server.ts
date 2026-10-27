@@ -80,6 +80,7 @@ import { makeIdentityGuard, makeKeyOwnerLookup, makeSessionFetch, onboardingApi 
 import { existingOwnerKey, fetchOwnQuote, runOwnerAction, type OwnerActionInput } from './owner-actions.js';
 import { runOwnerRebalance } from './owner-rebalance.js';
 import { presentFees, withFeesNote } from './fees.js';
+import { FUND_NAME_MAX, fundNameSchema } from './fund-name.js';
 import { Connection } from '@solana/web3.js';
 import {
   buildWalletIdentity,
@@ -1206,11 +1207,12 @@ server.registerTool(
       'mints are accepted but carry issuer-lock risk. Fees are factory-global, read ' +
       'live; the creator cannot set them. The share mint gets Metaplex metadata so ' +
       'wallets show the fund (#47, non-fatal); `metadata:false` skips its ' +
-      'unrecoverable rent (attach it later from the vault page). Names and symbols ' +
+      'unrecoverable rent (attach it later from the vault page). ' +
+      `Name 1–${FUND_NAME_MAX} characters. Names and symbols ` +
       'must be unique among active funds (case-insensitive). Returns the vault ' +
       'address — then make the first deposit (minimum $1 = "1000000").',
     inputSchema: {
-      name: z.string().min(1).max(32),
+      name: fundNameSchema,
       symbol: z
         .string()
         .min(1)
