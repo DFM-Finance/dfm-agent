@@ -21,7 +21,7 @@ export interface WalletIdentityView extends WalletIdentity {
 }
 
 /**
- * Keep authentication and custody roles explicit. The fallback is the local
+ * Keep authentication and signing roles explicit. The fallback is the local
  * SIWS keypair; keyless callers instead receive their owner from the API key's
  * server-resolved operating-wallet record.
  */

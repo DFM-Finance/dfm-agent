@@ -724,7 +724,7 @@ server.registerTool(
       "Create this agent's DFM APP WALLET without a browser. The owner key is generated and stays on THIS " +
       'machine (reused if it exists, never overwritten); DFM only receives the public key. Call it again ' +
       'if the wallet needs re-linking. ' +
-      'Needs a SIWS sign-in (a local keypair, DFM_AGENT_KEYPAIR_PATH) — a dfm_ API key cannot create custody. ' +
+      'Needs a SIWS sign-in (a local keypair, DFM_AGENT_KEYPAIR_PATH) — a dfm_ API key cannot create an app wallet. ' +
       'Idempotent: returns the existing app wallet if there is one. Moves no funds.',
     inputSchema: {},
     annotations: { readOnlyHint: false, idempotentHint: true, openWorldHint: true },
@@ -1181,7 +1181,7 @@ async function keylessWrite(
     return text(result);
   } catch (e) {
     const message = (e as Error).message;
-    const setupRelevant = /OPERATING_WALLET_REQUIRED|DFM API (401|403|409|501)\b|operating wallet|read-only|allowedOps|custody unavailable/i.test(message);
+    const setupRelevant = /OPERATING_WALLET_REQUIRED|DFM API (401|403|409|501)\b|operating wallet|read-only|allowedOps|signer \(\w+\) is not configured/i.test(message);
     return errText(`${tool} failed (app wallet): ${message}${setupRelevant ? `\n${KEYLESS_SETUP_HINT}` : ''}`);
   }
 }

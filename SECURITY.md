@@ -4,4 +4,4 @@
 
 What this server never does: ask for, read or store a private key or seed phrase on the DFM path. Fund operations run through the user's app wallet; the API key is read-only by default and revocable at https://app.dfm.finance → Agent → Keys.
 
-Risks of the protocol itself (contracts, protocol powers, custody of the app wallet) are documented at https://app.dfm.finance/docs/security.
+Risks of the protocol itself (contracts and the app wallet) are documented at https://app.dfm.finance/docs/security.
