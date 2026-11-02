@@ -9,7 +9,7 @@
  *
  *   npx -y @dfm-fi/agent install                          # read-only tools
  *   npx -y @dfm-fi/agent install --write --api-key dfm_…  # RECOMMENDED — signs with
- *                                                          # YOUR Privy operating wallet,
+ *                                                          # YOUR app wallet,
  *                                                          # no keypair anywhere
  *   npx -y @dfm-fi/agent install --write --keypair PATH   # legacy — local throwaway key
  *
@@ -18,7 +18,7 @@
  *   --api-key <key>    a `dfm_…` credential (mint one with POST /agent/keys from a
  *                       signed-in session). RECOMMENDED for --write: every write
  *                       routes through /agent/operating/execute and signs with
- *                       YOUR Privy-custodied operating wallet — no Solana keypair
+ *                       YOUR app wallet — no Solana keypair
  *                       ever touches this machine. Mutually exclusive with --keypair
  *                       (agent/src/keyless.ts: a keypair present always wins, so
  *                       passing both would silently ignore --api-key).
@@ -200,7 +200,7 @@ export async function runInstall(args: string[]): Promise<void> {
   console.log('   • Try: "list the DFM vaults" (read-only — works with no key).');
   if (o.write) {
     if (o.apiKey) {
-      console.log('   • Writes sign with YOUR Privy operating wallet (no keypair on this machine).');
+      console.log('   • Writes sign with YOUR app wallet (no keypair on this machine).');
       console.log('     No active/funded operating wallet yet? Ask Kim, or see /account in the app.');
     } else if (!o.keypair) {
       console.log('   • WRITE is ON but no --api-key or --keypair was given. RECOMMENDED: re-run with');
@@ -208,7 +208,7 @@ export async function runInstall(args: string[]): Promise<void> {
       console.log('     Legacy fallback: drop a throwaway keypair json at ~/.config/dfm/agent-wallet.json.');
     } else {
       console.log('   • Legacy local-keypair signing: this machine holds real signing power over that');
-      console.log('     wallet directly, with none of the operating wallet\'s caps/simulation/revoke.');
+      console.log('     wallet directly, with none of the app wallet\'s safeguards.');
       console.log('     RECOMMENDED instead: --api-key dfm_… (mint one with POST /agent/keys).');
     }
     console.log('   • WRITE tools move REAL money on Solana mainnet and only ever act on');

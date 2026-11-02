@@ -73,7 +73,7 @@ import {
   runAcceptAdminTransfer,
 } from './manager-flow.js';
 import { submitSignedTx } from './submit.js';
-import { DEFAULT_OWNER_KEY_PATH, ownerKeyPath, policyUpdateNotice, runCreateAppWallet } from './app-wallet-owner.js';
+import { ownerKeyPath, policyUpdateNotice, runCreateAppWallet } from './app-wallet-owner.js';
 import { getTestWalletPubkey, signBase64Transaction } from './signing.js';
 import { ONBOARDING_ORDER, ensureIdentityWallet, fundingNextStep, mintAndStoreKey, resolveAvatar, runOnboard } from './onboarding.js';
 import { makeIdentityGuard, makeKeyOwnerLookup, makeSessionFetch, onboardingApi } from './onboarding-api.js';
@@ -721,12 +721,9 @@ server.registerTool(
   {
     title: 'Create my app wallet (headless)',
     description:
-      "Create this agent's DFM APP WALLET without a browser. Generates a P-256 owner key on THIS machine " +
-      `(${DEFAULT_OWNER_KEY_PATH} or DFM_APP_WALLET_OWNER_KEY_PATH, mode 0600; reused if it exists, never ` +
-      "overwritten), sends DFM only the public key, and signs the one Privy request that sets DFM's " +
-      'policy-bound signer (cash-out to the sign-in wallet only). The signer id and Privy app id are pinned in ' +
-      'this MCP, not taken from the server; the per-wallet POLICY id is trusted to DFM (its content can only be ' +
-      'read with Privy\'s app secret). Call it again when DFM reissues the policy. DFM never holds the key. ' +
+      "Create this agent's DFM APP WALLET without a browser. The owner key is generated and stays on THIS " +
+      'machine (reused if it exists, never overwritten); DFM only receives the public key. Call it again ' +
+      'if the wallet needs re-linking. ' +
       'Needs a SIWS sign-in (a local keypair, DFM_AGENT_KEYPAIR_PATH) — a dfm_ API key cannot create custody. ' +
       'Idempotent: returns the existing app wallet if there is one. Moves no funds.',
     inputSchema: {},
@@ -890,7 +887,7 @@ server.registerTool(
     if (!write.ok) return write.result;
     try {
       const out = await ownerSignLocally({ ownerSignature: true }, { kind: 'close_empty', ...(destination ? { destination } : {}) });
-      return out ?? errText('close_empty_accounts needs this agent\'s owner key (create_app_wallet); a Privy-user wallet reclaims rent in the app.');
+      return out ?? errText('close_empty_accounts needs this agent\'s owner key (create_app_wallet); a user-owned app wallet reclaims rent in the app.');
     } catch (e) {
       return errText(`close_empty_accounts failed: ${(e as Error).message}`);
     }
@@ -1649,7 +1646,7 @@ server.registerTool(
       '`to`, it is refused: ask the human which. You never pass an address; the server ' +
       'resolves it. To the sign-in wallet DFM signs it even when writes are ' +
       'otherwise refused (a stale rebalancer stamp, an expired grant); to the saved ' +
-      'wallet a user-owned (Privy) app wallet needs the owner to approve it in the app. ' +
+      'wallet a user-owned app wallet needs the owner to approve it in the app. ' +
       'Do this BEFORE app_wallet_rearm.',
     inputSchema: {
       to: withdrawToField,
@@ -1895,7 +1892,7 @@ server.registerTool(
       'config target weights — no mints or amounts to supply; the API derives the legs ' +
       'from drift and this tool signs + submits them in order (5s cooldown). To change ' +
       'targets first, use update_vault_assets. Oracle-free guards: measured min_out, ' +
-      'output-mint allowlist. Balanced → `converged:true`.',
+      'output checks. Balanced → `converged:true`.',
     inputSchema: {
       vault: z.string().regex(BASE58, 'Invalid base58 vault address'),
       slippageBps: z.number().int().min(1).max(300).optional(),

@@ -37,7 +37,7 @@ function printHelp(): void {
   INSTALL (one command — registers the MCP server for Claude Code/Desktop):
     npx -y @dfm-fi/agent install                           read-only tools
     npx -y @dfm-fi/agent install --write --api-key dfm_…  + real-money tools (RECOMMENDED —
-                                                            signs with YOUR Privy operating
+                                                            signs with YOUR app
                                                             wallet, no keypair anywhere)
     npx -y @dfm-fi/agent install --write --keypair <path>  legacy — local throwaway key
 
