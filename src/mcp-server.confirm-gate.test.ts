@@ -1,9 +1,9 @@
 /**
  * MCP WRITE-GATE regressions (runnable: `npx tsx src/mcp-server.confirm-gate.test.ts`).
  *
- * Redteam F2 (2026-09-23) made a human confirmation phrase MANDATORY for every
- * write; Diego reverted that default on 2026-09-24 (the agent must operate
- * autonomously — "Kim y los agentes swapean solos"). Today's contract:
+ * A human confirmation phrase was briefly MANDATORY for every write (2026-09-23)
+ * and reverted to opt-in on 2026-09-24 (the agent must operate autonomously).
+ * Today's contract:
  *
  *   1. DEFAULT (no env): writes run WITHOUT any confirmation phrase — a write
  *      with no phrase deterministically reaches the WRITE-disabled gate (no

@@ -39,7 +39,7 @@
  *     names the ones that are not instead of dying in `loadTestKeypair`.
  *   • WRITE tools refuse unless DFM_AGENT_WRITE_ENABLED=true.
  *   • Human confirmation of writes is OPT-IN: by default a write runs WITHOUT
- *     a confirmation phrase (autonomous operating mode, Diego 2026-09-24). The
+ *     a confirmation phrase (autonomous operating mode, 2026-09-24). The
  *     operator hardens it with DFM_MCP_CONFIRM_REQUIRED=1, which makes every
  *     write demand a human confirmation phrase (confirmPhrase = the tool name;
  *     app_wallet_rearm uses "rearm_app_wallet") relayed by the host model —
@@ -1028,9 +1028,9 @@ function writeGate(): { ok: true } | { ok: false; result: ReturnType<typeof errT
 /**
  * Human-confirmation gate for write tools — OPT-IN since 2026-09-24.
  *
- * Redteam F2 (2026-09-23) made the phrase MANDATORY for every write; Diego
- * reverted that default the next day because it broke legitimate autonomous
- * operation ("Kim y los agentes swapean solos"). Today's semantics:
+ * The phrase was briefly MANDATORY for every write (2026-09-23) and reverted
+ * to opt-in the next day because it broke legitimate autonomous operation.
+ * Today's semantics:
  *
  *   • DEFAULT (neither env set): writes run WITHOUT any confirmation phrase —
  *     the autonomous operating mode. `confirmPhrase` is ignored.
@@ -1307,9 +1307,8 @@ server.registerTool(
 
 // ─── SWAP: any token → any token, without leaving DFM ─────────────────────
 //
-// Diego, 2026-09-24: *"quiero que lo tengamos en el mcp y npx api asi los
-// agentes q interactuan con nuestro protocolo, lo usan automaticamente sin
-// tener que ir a otro lado"*. An agent that has to send its user elsewhere to
+// Product decision (2026-09-24): agents that use the protocol get this in the
+// MCP and the npx API, without having to go elsewhere. An agent that has to send its user elsewhere to
 // convert a token has just handed the relationship to whoever it sent them to.
 //
 // NOT the zapper: no vault, no shares, no escrow. This is the app wallet's own
@@ -1367,8 +1366,8 @@ server.registerTool(
     },
     annotations: { title: 'DFM swap', readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
   },
-  // NO confirmGate — deliberate (Diego 2026-09-24: "sí que pueden los agentes
-  // swapear"). The human-phrase gate exists because an injected instruction
+  // NO confirmGate — deliberate (product decision 2026-09-24: agents may
+  // swap on their own). The human-phrase gate exists because an injected instruction
   // could move funds OUT; a swap cannot: the server signs it through the K5
   // assert, which only passes a route crediting the SAME app wallet. What an
   // injected swap can do is a bad trade (bounded by slippageBps ≤ 10%) or a

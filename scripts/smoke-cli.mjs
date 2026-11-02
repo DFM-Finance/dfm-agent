@@ -52,7 +52,7 @@ function run(args) {
 }
 
 // 4b) install --write --api-key --dry-run wires DFM_API_KEY, NEVER a keypair —
-//     this is the RECOMMENDED path (Diego, 2026-08-05): agent-driven writes must
+//     this is the RECOMMENDED path (product decision, 2026-08-05): agent-driven writes must
 //     sign with the Privy operating wallet, never a raw local keypair.
 {
   const { code, out } = run(['install', '--write', '--api-key', 'dfm_test123', '--dry-run']);

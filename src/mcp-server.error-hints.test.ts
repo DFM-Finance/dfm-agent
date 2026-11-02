@@ -8,7 +8,7 @@
  *     (execute_rebalance.rs, unconditional; a creator can raise it above 5s);
  *   - SwapSlippageExceeded — the measured `min_out` floor;
  *   - InsufficientInputBalance — a leg whose input spends nothing.
- * It can NOT revert with ConfigTimelocked (the timelock `require!` is flag-gated
+ * It can NOT revert with ConfigTimelocked (that check is flag-gated
  * off in v1; dropped from the hints in 06eda239).
  *
  * Read through a real MCP Client over an in-memory transport, so this asserts the

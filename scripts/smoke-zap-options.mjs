@@ -40,8 +40,7 @@ const transport = new StdioClientTransport({
     DFM_AGENT_KEYPAIR_PATH: '',
     DFM_AGENT_KEYPAIR_JSON: '',
     // This smoke IS a non-interactive pipeline: there is no human who could
-    // type a confirmation phrase, so it exercises the documented opt-in escape
-    // (redteam F2). Interactive use must NOT copy this — leave the env unset
+    // type a confirmation phrase, so it exercises the documented opt-in escape. Interactive use must NOT copy this — leave the env unset
     // and relay confirmPhrase:"<tool>" from the human instead.
     DFM_MCP_NONINTERACTIVE_WRITES: '1',
   },

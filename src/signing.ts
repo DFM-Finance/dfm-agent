@@ -28,8 +28,7 @@ import bs58 from 'bs58';
 import type { AgentConfig } from './config.js';
 
 /**
- * The single hot Protocol Wallet (DIEGO_2) — `factory.admin` + fee recipient +
- * upgrade authority + backend signer. The agent must NEVER sign with this. If a
+ * The DFM protocol wallet (fee recipient, keeper, backend signer). The agent must NEVER sign with this. If a
  * loaded keypair resolves to this pubkey we refuse immediately: a test agent
  * holding the protocol key is a critical misconfiguration.
  */
@@ -153,7 +152,7 @@ export function loadTestKeypair(config: AgentConfig): Keypair {
     kp.secretKey.fill(0);
     throw new Error(
       'REFUSING to load the protocol wallet as the agent test keypair. The agent ' +
-        'must sign with a dedicated throwaway test wallet, never the protocol hot wallet.',
+        'must sign with a dedicated throwaway test wallet, never a protocol wallet.',
     );
   }
 

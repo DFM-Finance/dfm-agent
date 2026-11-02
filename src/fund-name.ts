@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Max characters in a NEW fund's name (Diego, 2026-10-27: 32 -> 24). Funds
+ * Max characters in a NEW fund's name (product decision 2026-10-27: 32 -> 24). Funds
  * launched earlier keep names up to 32 (the onchain cap); this only gates
  * launch_vault. Mirrors api/src/modules/vault/fund-name.ts, because this npm
  * package does not depend on the api; agent-mcp-parity.spec pins the two.
