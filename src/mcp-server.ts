@@ -902,7 +902,7 @@ server.registerTool(
   {
     title: 'XP',
     description:
-      "The user's XP (total and by kind: deposit, launch, profile, referral), the top of the XP leaderboard, and HOW XP is " +
+      "The user's XP (total and by kind: deposit, launch, profile, referral, referred), the top of the XP leaderboard, and HOW XP is " +
       'earned: `rules.howToEarn` lists every action with what it pays and what it waits for, `rules.doesNotEarn` what never ' +
       'counts. Answer any "how do I earn XP / why did this not pay" from here, never from memory.',
     inputSchema: {},

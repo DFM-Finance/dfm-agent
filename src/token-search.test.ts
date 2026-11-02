@@ -21,7 +21,7 @@ assert.equal(lean.shown, 10, 'default limit is 10');
 assert.equal(lean.total, 100, 'says how many the search found');
 assert.deepEqual(Object.keys(lean.results[0]!).sort(), [
   'assetClass', 'basketEligibility', 'decimals', 'eligibilityReason', 'isToken2022', 'isVerified',
-  'liquidityUsd', 'mcap', 'mint', 'name', 'organicScoreLabel', 'symbol',
+  'liquidityUsd', 'mcap', 'mint', 'name', 'organicScoreLabel', 'symbol', 'volume24hUsd',
 ]);
 assert.ok(JSON.stringify(lean).length < full / 20, `lean output is a small fraction of the raw ${full} bytes`);
 assert.equal((leanTokenRows(rows, 500) as { shown: number }).shown, 50, 'limit is capped at 50');

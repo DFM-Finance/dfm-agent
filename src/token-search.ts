@@ -9,7 +9,7 @@ export const MAX_TOKEN_LIMIT = 50;
 
 const LEAN_FIELDS = [
   'mint', 'symbol', 'name', 'decimals', 'isVerified', 'assetClass', 'isToken2022',
-  'liquidityUsd', 'mcap', 'organicScoreLabel', 'basketEligibility', 'eligibilityReason',
+  'liquidityUsd', 'volume24hUsd', 'mcap', 'organicScoreLabel', 'basketEligibility', 'eligibilityReason',
 ] as const;
 
 export function leanTokenRows(rows: unknown, limit: number = DEFAULT_TOKEN_LIMIT): unknown {
