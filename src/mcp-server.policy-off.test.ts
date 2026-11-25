@@ -8,7 +8,12 @@ import { fileURLToPath } from 'node:url';
 // from source on purpose: importing mcp-server.ts starts a stdio server.
 const here = dirname(fileURLToPath(import.meta.url));
 const src = readFileSync(join(here, 'mcp-server.ts'), 'utf8');
-const tools = [...src.matchAll(/server\.registerTool\(\s*'([a-z_]+)'/g)].map((m) => m[1]);
+// The shared read tools live in read-tools.ts (one registry for stdio and the remote server).
+const readSrc = readFileSync(join(here, 'read-tools.ts'), 'utf8');
+const tools = [
+  ...src.matchAll(/server\.registerTool\(\s*'([a-z_]+)'/g),
+  ...readSrc.matchAll(/defineRead\(\{\s*name: '([a-z_]+)'/g),
+].map((m) => m[1]);
 
 assert.ok(tools.length >= 30, `parsed only ${tools.length} tools — the registerTool parse broke`);
 assert.ok(!tools.includes('update_vault_policy'), 'update_vault_policy is back in the MCP tool list');
