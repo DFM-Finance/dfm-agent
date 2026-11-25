@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -17,6 +18,7 @@ import { assertRemoteEnv } from './env-guard.js';
 import { scrubError } from './scrub.js';
 import { registerReadTools, type ToolHost } from '../read-tools.js';
 import { RemoteReadClient } from './public-client.js';
+import { resolveVersion } from './version.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -166,7 +168,7 @@ await t('only the allowlisted built files are reachable from the remote entry, w
   walk(entry);
   assert.deepEqual(dynamic, [], 'a dynamic import/require cannot be followed, so it is refused');
   const reached = [...files].map((f) => f.slice(dist.length + 1)).sort();
-  assert.deepEqual(reached, ['fees.js', 'read-tools.js', join('remote', 'env-guard.js'), join('remote', 'http.js'), join('remote', 'main.js'), join('remote', 'public-client.js'), join('remote', 'scrub.js'), join('remote', 'server.js'), 'token-search.js'], 'a new reachable file must be reviewed and added here on purpose');
+  assert.deepEqual(reached, ['fees.js', 'read-tools.js', join('remote', 'env-guard.js'), join('remote', 'http.js'), join('remote', 'main.js'), join('remote', 'public-client.js'), join('remote', 'scrub.js'), join('remote', 'server.js'), join('remote', 'version.js'), 'token-search.js'], 'a new reachable file must be reviewed and added here on purpose');
   assert.deepEqual([...bare].sort(), ['@modelcontextprotocol/sdk/server/mcp.js', '@modelcontextprotocol/sdk/server/streamableHttp.js', 'node:crypto', 'node:fs', 'node:http', 'node:path', 'node:url', 'zod']);
   for (const f of files) {
     assert.doesNotMatch(readFileSync(f, 'utf8').replace(/\/\*[\s\S]*?\*\/|(?<![:'"`])\/\/.*$/gm, ''), /loadTestKeypair|Keypair\.from|DFM_AGENT_KEYPAIR_(?:PATH|JSON)\b(?!\))/, f);
@@ -258,6 +260,23 @@ await t('the registry is SDK-agnostic: any host with registerTool gets the same 
   const names = registerReadTools(host, new RemoteReadClient(upstreamUrl), { lane: 'remote', scrub: scrubError });
   assert.deepEqual([...names].sort(), [...ALLOWLIST].sort());
   assert.ok(got.every((g) => g.endsWith(':object')), 'inputSchema is a plain zod shape the adapter can wrap');
+});
+
+await t('serverInfo.version over the wire is the version the host passes, not a literal', async () => {
+  const client = await connect();
+  assert.equal(client.getServerVersion()?.version, '0.0.0-test');
+  await client.close();
+});
+
+await t('resolveVersion: the release VERSION (0.2.<build>) beats package.json 0.2.0; falls back; never throws', () => {
+  const dir = () => mkdtempSync(join(tmpdir(), 'dfm-ver-'));
+  const a = dir(); writeFileSync(join(a, 'package.json'), '{"version":"0.2.0"}'); writeFileSync(join(a, 'VERSION'), '0.2.2431\n');
+  assert.equal(resolveVersion(a), '0.2.2431');
+  const b = dir(); writeFileSync(join(b, 'package.json'), '{"version":"0.2.0"}');
+  assert.equal(resolveVersion(b), '0.2.0');
+  const c = dir(); writeFileSync(join(c, 'package.json'), '{"version":"0.2.0"}'); writeFileSync(join(c, 'VERSION'), 'not a version');
+  assert.equal(resolveVersion(c), '0.2.0', 'a garbled VERSION file is ignored');
+  assert.equal(resolveVersion(dir()), '0.0.0');
 });
 
 remote.close();
