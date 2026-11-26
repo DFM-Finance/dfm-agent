@@ -36,6 +36,7 @@
  * nothing while reporting success) is the worst possible outcome here.
  */
 import type { AgentConfig } from './config.js';
+import { assertHostDefaults, envCredentials, type CredentialSource } from './context.js';
 
 /**
  * True when the operator EXPLICITLY pointed this process at a keypair.
@@ -49,9 +50,10 @@ import type { AgentConfig } from './config.js';
  * incidental file presence: a stray default keypair must never hijack a run the
  * operator set up with an API key.
  */
-export function hasExplicitKeypair(): boolean {
-  const p = process.env.DFM_AGENT_KEYPAIR_PATH?.trim();
-  const j = process.env.DFM_AGENT_KEYPAIR_JSON?.trim();
+export function hasExplicitKeypair(creds: CredentialSource = envCredentials): boolean {
+  if (creds === envCredentials) assertHostDefaults('the environment credentials');
+  const p = creds.keypairPath()?.trim();
+  const j = creds.keypairJson()?.trim();
   return Boolean(p) || Boolean(j);
 }
 
@@ -61,9 +63,9 @@ export function hasLocalKeypair(config: AgentConfig): boolean {
 }
 
 /** True when writes must go through the server-side operating wallet. */
-export function isKeylessMode(_config?: AgentConfig): boolean {
-  const apiKey = process.env.DFM_API_KEY?.trim();
-  return Boolean(apiKey) && !hasExplicitKeypair();
+export function isKeylessMode(_config?: AgentConfig, creds: CredentialSource = envCredentials): boolean {
+  if (creds === envCredentials) assertHostDefaults('the environment credentials');
+  return Boolean(creds.apiKey()) && !hasExplicitKeypair(creds);
 }
 
 /** App-wallet readiness; a local signing override never selects the payer. */

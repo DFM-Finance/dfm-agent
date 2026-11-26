@@ -15,6 +15,7 @@
  */
 import { createHash, randomUUID } from 'node:crypto';
 import type { AgentConfig } from './config.js';
+import { ONLY_DFM_KEY_MSG, assertHostDefaults, envCredentials, keyOnly, type CredentialSource } from './context.js';
 import { SiwsSession } from './session.js';
 import { dfmClientHeaders } from './client-header.js';
 import type { SignerRequest } from './app-wallet-owner.js';
@@ -87,10 +88,24 @@ export class DfmApiClient {
   private readonly unansweredOps = new Map<string, { key: string; at: number }>();
 
   constructor(
-    config: AgentConfig,
-    private readonly session: SiwsSession,
+    private readonly config: AgentConfig,
+    /** The host's own sign-in. `null` on a request client: a caller never rides the host's session. */
+    private readonly session: SiwsSession | null,
+    /** Whose `dfm_` key the calls carry. The process env by default (stdio); a caller's own on a shared server. */
+    private readonly credentials: CredentialSource = envCredentials,
   ) {
+    if (credentials === envCredentials) assertHostDefaults('the environment credentials');
     this.baseUrl = config.apiUrl;
+  }
+
+  /**
+   * A client for ONE request with its own `dfm_` key and NO session. It shares
+   * nothing mutable with this one (not even the retry-key map), so two callers in
+   * flight cannot see each other's key or operations, and it can never sign in as
+   * the host: no key, or a session-only route, ends in ONLY_DFM_KEY_MSG.
+   */
+  forRequest(credentials: CredentialSource): DfmApiClient {
+    return new DfmApiClient(this.config, null, keyOnly(credentials));
   }
 
   // ─── low-level request helpers ─────────────────────────────────────────
@@ -152,7 +167,8 @@ export class DfmApiClient {
     // side. A 401 means the key was revoked OR expired (the server enforces
     // `expiresAt`); silently retrying a dead credential would be wrong either
     // way, so the caller is told to mint a new one.
-    const apiKey = sessionOnly ? undefined : process.env.DFM_API_KEY?.trim();
+    if (!this.session && (sessionOnly || !this.credentials.apiKey())) throw new Error(ONLY_DFM_KEY_MSG);
+    const apiKey = sessionOnly ? undefined : this.credentials.apiKey();
     if (apiKey) {
       const res = await fetch(`${this.baseUrl}${path}`, {
         ...reqInit,
@@ -179,6 +195,7 @@ export class DfmApiClient {
         headers: common({ Authorization: `Bearer ${token}` }),
       });
 
+    if (!this.session) throw new Error(ONLY_DFM_KEY_MSG);
     let token = await this.session.getAccessToken();
     let res = await send(token);
     // One transparent re-auth on token expiry/rotation.

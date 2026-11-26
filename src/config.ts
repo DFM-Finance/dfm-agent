@@ -22,10 +22,14 @@ import { join } from 'node:path';
  * Returns undefined when neither is present (write tools then error clearly).
  */
 export const DEFAULT_KEYPAIR_PATH = join(homedir(), '.config', 'dfm', 'agent-wallet.json');
-function resolveKeypairPath(): string | undefined {
-  const explicit = process.env.DFM_AGENT_KEYPAIR_PATH;
+export function resolveKeypairPath(
+  explicit: string | undefined,
+  noDefaultKeypair: boolean,
+  exists: (p: string) => boolean = existsSync,
+): string | undefined {
   if (explicit && explicit.trim().length > 0) return explicit;
-  return existsSync(DEFAULT_KEYPAIR_PATH) ? DEFAULT_KEYPAIR_PATH : undefined;
+  if (noDefaultKeypair) return undefined; // a server hosting other people's requests never picks up a file lying around
+  return exists(DEFAULT_KEYPAIR_PATH) ? DEFAULT_KEYPAIR_PATH : undefined;
 }
 
 export interface AgentConfig {
@@ -72,7 +76,8 @@ export function normalizeApiUrl(raw: string): string {
   return url;
 }
 
-export function loadConfig(): AgentConfig {
+/** `noDefaultKeypair`: the Next lane never reads `~/.config/dfm/agent-wallet.json` (CA-4.8). */
+export function loadConfig(opts: { noDefaultKeypair?: boolean } = {}): AgentConfig {
   // Default to the live closed-mainnet API so the read tools work out of the box.
   const apiUrl = normalizeApiUrl(process.env.DFM_API_URL ?? 'https://app.dfm.finance');
   const cluster = parseCluster(process.env.SOLANA_CLUSTER);
@@ -94,7 +99,7 @@ export function loadConfig(): AgentConfig {
     apiUrl,
     cluster,
     rpcUrl,
-    keypairPath: resolveKeypairPath(),
+    keypairPath: resolveKeypairPath(process.env.DFM_AGENT_KEYPAIR_PATH, opts.noDefaultKeypair === true),
     keypairJsonEnvPresent: typeof process.env.DFM_AGENT_KEYPAIR_JSON === 'string'
       && process.env.DFM_AGENT_KEYPAIR_JSON.trim().length > 0,
     writeEnabled,

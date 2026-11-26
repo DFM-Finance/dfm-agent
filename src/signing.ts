@@ -26,15 +26,8 @@ import { Keypair, Transaction, VersionedTransaction } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import type { AgentConfig } from './config.js';
-
-/**
- * The DFM protocol wallet (fee recipient, keeper, backend signer). The agent must NEVER sign with this. If a
- * loaded keypair resolves to this pubkey we refuse immediately: a test agent
- * holding the protocol key is a critical misconfiguration.
- */
-const PROTOCOL_WALLET = '9GjEBsZ1Cos2J6inmgwhBKv9pXGNtLSJ7xQ9xZb29bET';
-
-let cachedKeypair: Keypair | null = null;
+import { ONLY_DFM_KEY_MSG, assertHostDefaults, envCredentials, stdioScope, type SigningScope } from './context.js';
+import { isDfmHeldWallet } from './dfm-held-wallets.js';
 
 const lstatOrNull = (p: string) => {
   try {
@@ -112,14 +105,45 @@ function keypairFromJsonArray(json: string, source: string): Keypair {
 }
 
 /**
+ * A loaded keypair that resolves to ANY DFM-held wallet is refused and dropped: an
+ * agent holding one is a critical misconfiguration (CA-4.12). `isHeld` is a
+ * parameter only so a test can match a throwaway key (the real secrets are never here).
+ */
+export function refuseDfmHeld(kp: Keypair, isHeld: (pubkey: string) => boolean = isDfmHeldWallet): void {
+  if (!isHeld(kp.publicKey.toBase58())) return;
+  // (The old `kp.secretKey.fill(0)` here wiped a COPY: `Keypair.secretKey` returns a new buffer. The refused key is simply dropped.)
+  throw new Error(
+    'REFUSING to load the protocol wallet as the agent test keypair. The agent ' +
+      'must sign with a dedicated throwaway test wallet, never a protocol wallet.',
+  );
+}
+
+/** The inline keypair, if this scope has one. The env scope keeps today's rule: only when the config saw it at load. */
+function inlineJson(config: AgentConfig, scope: Extract<SigningScope, { kind: 'host' }>): string | undefined {
+  if (scope.credentials === envCredentials && !config.keypairJsonEnvPresent) return undefined;
+  const json = scope.credentials.keypairJson();
+  return json !== undefined && json.trim().length > 0 ? json : undefined;
+}
+
+/**
  * Load (and cache) the operator's local test keypair. Throws a clear,
  * key-material-free error if no source is configured or the material is invalid.
  * Caller MUST have already verified `config.writeEnabled` — this function does
  * not gate on the write flag (separation of concerns), but it is only reachable
  * from the write path.
  */
-export function loadTestKeypair(config: AgentConfig): Keypair {
-  if (cachedKeypair) return cachedKeypair;
+export function loadTestKeypair(
+  config: AgentConfig,
+  scope: SigningScope = stdioScope,
+  isHeld?: (pubkey: string) => boolean,
+): Keypair {
+  // A caller on a shared server never has a signing key here: refuse before any path, env or cache is touched.
+  if (scope.kind === 'request') throw new Error(ONLY_DFM_KEY_MSG);
+  if (scope === stdioScope) assertHostDefaults('the host signing key');
+  // The cache lives in the scope's store: stdio's is the process-lifetime one (as before);
+  // a request-scoped store dies with the request and is never shared across callers (CA-4.10).
+  const cached = scope.keypairs.get();
+  if (cached) return cached;
 
   let kp: Keypair;
   if (config.keypairPath) {
@@ -135,9 +159,9 @@ export function loadTestKeypair(config: AgentConfig): Keypair {
       );
     }
     kp = keypairFromJsonArray(raw, 'DFM_AGENT_KEYPAIR_PATH');
-  } else if (config.keypairJsonEnvPresent) {
-    // Read straight from the env at use-time (not cached as a string anywhere).
-    kp = keypairFromJsonArray(process.env.DFM_AGENT_KEYPAIR_JSON as string, 'DFM_AGENT_KEYPAIR_JSON');
+  } else if (inlineJson(config, scope) !== undefined) {
+    // Read straight from the credential source at use-time (not cached as a string anywhere).
+    kp = keypairFromJsonArray(inlineJson(config, scope) as string, 'DFM_AGENT_KEYPAIR_JSON');
   } else {
     throw new Error(
       'No test keypair configured. Set DFM_AGENT_KEYPAIR_PATH (path to a Solana ' +
@@ -146,23 +170,15 @@ export function loadTestKeypair(config: AgentConfig): Keypair {
     );
   }
 
-  const pubkey = kp.publicKey.toBase58();
-  if (pubkey === PROTOCOL_WALLET) {
-    // Wipe and refuse.
-    kp.secretKey.fill(0);
-    throw new Error(
-      'REFUSING to load the protocol wallet as the agent test keypair. The agent ' +
-        'must sign with a dedicated throwaway test wallet, never a protocol wallet.',
-    );
-  }
+  refuseDfmHeld(kp, isHeld);
 
-  cachedKeypair = kp;
+  scope.keypairs.set(kp);
   return kp;
 }
 
 /** The agent's test-wallet PUBLIC key (base58). Safe to surface + log. */
-export function getTestWalletPubkey(config: AgentConfig): string {
-  return loadTestKeypair(config).publicKey.toBase58();
+export function getTestWalletPubkey(config: AgentConfig, scope: SigningScope = stdioScope): string {
+  return loadTestKeypair(config, scope).publicKey.toBase58();
 }
 
 /**
@@ -172,8 +188,8 @@ export function getTestWalletPubkey(config: AgentConfig): string {
  * /auth/nonce` (the server re-derives the domain + nonce and verifies the
  * signature over that exact text).
  */
-export function signSiwsMessage(config: AgentConfig, message: string): string {
-  const kp = loadTestKeypair(config);
+export function signSiwsMessage(config: AgentConfig, message: string, scope: SigningScope = stdioScope): string {
+  const kp = loadTestKeypair(config, scope);
   const messageBytes = new TextEncoder().encode(message);
   const sig = nacl.sign.detached(messageBytes, kp.secretKey);
   return bs58.encode(sig);
@@ -190,8 +206,8 @@ export function signSiwsMessage(config: AgentConfig, message: string): string {
  * versioned mis-parses it → "Transaction did not pass signature verification",
  * which broke the manager tools. We route by the wire version byte.
  */
-export function signBase64Transaction(config: AgentConfig, base64Tx: string): string {
-  const kp = loadTestKeypair(config);
+export function signBase64Transaction(config: AgentConfig, base64Tx: string, scope: SigningScope = stdioScope): string {
+  const kp = loadTestKeypair(config, scope);
   const raw = Buffer.from(base64Tx, 'base64');
   if (isVersionedTxBytes(raw)) {
     const tx = VersionedTransaction.deserialize(raw);

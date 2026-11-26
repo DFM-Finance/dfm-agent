@@ -14,6 +14,7 @@ import { z } from 'zod';
 import { leanTokenRows, MAX_TOKEN_LIMIT } from './token-search.js';
 import { presentFees, withFeesNote } from './fees.js';
 import type { VaultDetailResponse, VaultListResponse } from './types.js';
+import type { LaneFlags, ToolClass } from './registry/types.js';
 
 export const BASE58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
@@ -52,8 +53,9 @@ type Result = ReturnType<typeof text> | ReturnType<typeof errText>;
 
 export interface ReadToolDef {
   name: string;
-  /** Served by the remote (read-only, no install) server too. */
-  remote: boolean;
+  class: ToolClass;
+  /** Which lanes serve it. `remote` = the read-only, no-install HTTP server. */
+  lanes: LaneFlags;
   /** Appended to the description on the remote server only. */
   remoteNote?: string;
   config: {
@@ -67,7 +69,8 @@ export interface ReadToolDef {
 
 function defineRead<S extends z.ZodRawShape>(def: {
   name: string;
-  remote: boolean;
+  class: ToolClass;
+  lanes: LaneFlags;
   remoteNote?: string;
   config: { title: string; description: string; inputSchema: S; annotations: Record<string, boolean | string> };
   run: (ctx: ReadToolCtx, args: z.infer<z.ZodObject<S>>) => Promise<Result>;
@@ -75,6 +78,8 @@ function defineRead<S extends z.ZodRawShape>(def: {
   return def as unknown as ReadToolDef;
 }
 
+/** All nine read tools are public reads: served by every lane. */
+const READ_LANES: LaneFlags = { stdio: true, remote: true, next: true };
 const READ_ANN = { readOnlyHint: true, openWorldHint: true };
 const KEY_NOTE =
   ' On this remote server it reads the account of the read-only `dfm_` key you connect with ' +
@@ -83,7 +88,8 @@ const KEY_NOTE =
 export const READ_TOOLS: ReadToolDef[] = [
   defineRead({
     name: 'list_dtfs',
-    remote: true,
+    class: 'read',
+    lanes: READ_LANES,
     config: {
       title: 'List Funds',
       description:
@@ -135,7 +141,8 @@ export const READ_TOOLS: ReadToolDef[] = [
 
   defineRead({
     name: 'get_vault',
-    remote: true,
+    class: 'read',
+    lanes: READ_LANES,
     config: {
       title: 'Get Vault Detail',
       description:
@@ -160,7 +167,8 @@ export const READ_TOOLS: ReadToolDef[] = [
   // mode whose downside is total loss. agent-mcp-parity.spec.ts guards the pair.
   defineRead({
     name: 'discover_tokens',
-    remote: true,
+    class: 'read',
+    lanes: READ_LANES,
     config: {
       title: 'Discover Tokens',
       description:
@@ -203,7 +211,8 @@ export const READ_TOOLS: ReadToolDef[] = [
   // (2026-10-22); this is the source instead of memory.
   defineRead({
     name: 'protocol_facts',
-    remote: true,
+    class: 'read',
+    lanes: READ_LANES,
     config: {
       title: 'Protocol facts (live)',
       description:
@@ -225,7 +234,8 @@ export const READ_TOOLS: ReadToolDef[] = [
 
   defineRead({
     name: 'get_token_price',
-    remote: true,
+    class: 'read',
+    lanes: READ_LANES,
     config: {
       title: 'Get Token Price',
       description:
@@ -269,7 +279,8 @@ export const READ_TOOLS: ReadToolDef[] = [
 
   defineRead({
     name: 'zap_status',
-    remote: true,
+    class: 'read',
+    lanes: READ_LANES,
     remoteNote: KEY_NOTE + ' `user` is required and must be that key’s own wallet.',
     config: {
       title: 'Zap-v2 Escrow Status',
@@ -298,7 +309,8 @@ export const READ_TOOLS: ReadToolDef[] = [
 
   defineRead({
     name: 'get_portfolio',
-    remote: true,
+    class: 'read',
+    lanes: READ_LANES,
     remoteNote: KEY_NOTE,
     config: {
       title: 'Get Portfolio (primary DFM wallet)',
@@ -322,7 +334,8 @@ export const READ_TOOLS: ReadToolDef[] = [
   // Social (parity with the web + Kim, bug-hunt 2026-10-09)
   defineRead({
     name: 'trader_profile',
-    remote: true,
+    class: 'read',
+    lanes: READ_LANES,
     config: {
       title: 'Trader profile',
       description:
@@ -343,7 +356,8 @@ export const READ_TOOLS: ReadToolDef[] = [
 
   defineRead({
     name: 'swap_quote',
-    remote: true,
+    class: 'read',
+    lanes: READ_LANES,
     remoteNote: KEY_NOTE,
     config: {
       title: 'Quote a token → token swap (app wallet)',
@@ -393,7 +407,7 @@ export function registerReadTools(
 ): string[] {
   const names: string[] = [];
   for (const def of READ_TOOLS) {
-    if (opts.lane === 'remote' && !def.remote) continue;
+    if (!def.lanes[opts.lane]) continue;
     const description =
       opts.lane === 'remote' && def.remoteNote ? def.config.description + def.remoteNote : def.config.description;
     server.registerTool(def.name, { ...def.config, description }, (async (args: never) => {

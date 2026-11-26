@@ -1,0 +1,14 @@
+{
+  "lane": "next",
+  "tools": [
+    "discover_tokens",
+    "get_portfolio",
+    "get_token_price",
+    "get_vault",
+    "list_dtfs",
+    "protocol_facts",
+    "swap_quote",
+    "trader_profile",
+    "zap_status"
+  ]
+}
